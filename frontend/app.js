@@ -17,6 +17,10 @@ async function init() {
     try {
       const res = await api("/auth/verify/" + authToken, { method: "GET" });
       if (res.success) {
+        // Store session token for cross-origin auth
+        if (res.token) {
+          sessionStorage.setItem("session_token", res.token);
+        }
         // Clean URL
         window.history.replaceState({}, "", window.location.pathname);
         await loadPortal();
@@ -48,9 +52,17 @@ async function init() {
 // ─── API helper ───
 async function api(path, options = {}) {
   const url = API_BASE + path;
+  const headers = { "Content-Type": "application/json" };
+
+  // Send JWT via Authorization header (cross-origin safe — cookies blocked by browsers)
+  const token = sessionStorage.getItem("session_token");
+  if (token) {
+    headers["Authorization"] = "Bearer " + token;
+  }
+
   const res = await fetch(url, {
-    credentials: "include", // Send cookies
-    headers: { "Content-Type": "application/json" },
+    credentials: "include", // Also try cookies (same-origin fallback)
+    headers,
     ...options,
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
@@ -117,6 +129,7 @@ async function handleLogout() {
   } catch {
     // Logout even if API fails
   }
+  sessionStorage.removeItem("session_token");
   patientData = null;
   showView("login");
 }

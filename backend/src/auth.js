@@ -94,7 +94,14 @@ async function verifyMagicLink(token) {
 // ─── JWT authentication middleware ───
 
 function requireAuth(req, res, next) {
-  const token = req.cookies?.session;
+  // Check cookie first, then Authorization header (for cross-origin)
+  let token = req.cookies?.session;
+  if (!token) {
+    const authHeader = req.headers.authorization;
+    if (authHeader?.startsWith("Bearer ")) {
+      token = authHeader.slice(7);
+    }
+  }
   if (!token) {
     return res.status(401).json({ error: "Not authenticated" });
   }

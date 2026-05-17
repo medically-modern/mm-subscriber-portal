@@ -92,10 +92,12 @@ app.get("/auth/verify/:token", async (req, res) => {
       return res.status(result.status).json({ error: result.error });
     }
 
-    // Set httpOnly session cookie
+    // Set httpOnly session cookie (works same-origin)
     res.cookie("session", result.jwt, COOKIE_OPTIONS);
 
-    res.json({ success: true, uid: result.uid });
+    // Also return token in body for cross-origin (GitHub Pages → Railway)
+    // Frontend stores in sessionStorage and sends via Authorization header
+    res.json({ success: true, uid: result.uid, token: result.jwt });
   } catch (err) {
     console.error("[auth] Error verifying token:", err.message);
     res.status(500).json({ error: "Something went wrong. Please try again." });
@@ -106,7 +108,8 @@ app.get("/auth/verify/:token", async (req, res) => {
 app.post("/auth/logout", requireAuth, async (req, res) => {
   try {
     const jwt = require("jsonwebtoken");
-    const decoded = jwt.decode(req.cookies.session);
+    const sessionToken = req.cookies?.session || req.headers.authorization?.slice(7);
+    const decoded = jwt.decode(sessionToken);
     if (decoded?.jti && decoded?.exp) {
       await logout(decoded.jti, decoded.exp);
     }

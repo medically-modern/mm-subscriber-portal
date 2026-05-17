@@ -4,6 +4,115 @@ const API_BASE = "https://mm-patient-portal-production.up.railway.app";
 // ─── State ───
 let patientData = null;
 
+// Store lat/lng from Google Places for address writes
+const addressCoords = {
+  address: { lat: 0, lng: 0 },
+  doctorAddress: { lat: 0, lng: 0 },
+};
+
+// ─── Google Places Autocomplete ───
+
+let _mapsLoaded = false;
+let _mapsLoading = false;
+const _mapsCallbacks = [];
+
+function stripZipPlus4(addr) {
+  return addr.replace(/(\b\d{5})-\d{4}\b/g, "$1");
+}
+
+function buildFullAddress(place) {
+  const components = place.address_components || [];
+  const get = (type) => components.find((c) => c.types.includes(type))?.long_name || "";
+
+  const streetNumber = get("street_number");
+  const route = get("route");
+  const subpremise = get("subpremise");
+  const city = get("locality") || get("sublocality_level_1") || get("administrative_area_level_3");
+  const state = (components.find((c) => c.types.includes("administrative_area_level_1"))?.short_name) || "";
+  const zip = get("postal_code");
+  const country = (components.find((c) => c.types.includes("country"))?.short_name) || "";
+
+  let street = [streetNumber, route].filter(Boolean).join(" ");
+  if (subpremise) street += ` ${subpremise}`;
+  const parts = [street, city, [state, zip].filter(Boolean).join(" ")].filter(Boolean);
+  let addr = parts.join(", ");
+  if (country) addr += `, ${country}`;
+  return addr;
+}
+
+async function loadGooglePlaces(apiKey) {
+  if (_mapsLoaded) return;
+  if (_mapsLoading) {
+    return new Promise((resolve) => _mapsCallbacks.push(resolve));
+  }
+  _mapsLoading = true;
+
+  return new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+    script.async = true;
+    script.onload = () => {
+      _mapsLoaded = true;
+      _mapsLoading = false;
+      _mapsCallbacks.forEach((cb) => cb());
+      _mapsCallbacks.length = 0;
+      resolve();
+    };
+    script.onerror = () => {
+      _mapsLoading = false;
+      reject(new Error("Google Maps SDK failed to load"));
+    };
+    document.head.appendChild(script);
+  });
+}
+
+function attachAutocomplete(inputId, coordsKey) {
+  const input = document.getElementById(inputId);
+  if (!input || !window.google?.maps?.places?.Autocomplete) return;
+
+  const autocomplete = new google.maps.places.Autocomplete(input, {
+    componentRestrictions: { country: "us" },
+    types: ["address"],
+    fields: ["address_components", "formatted_address", "geometry"],
+  });
+
+  autocomplete.addListener("place_changed", () => {
+    const place = autocomplete.getPlace();
+    if (!place) return;
+
+    let addr = "";
+    if (place.address_components?.length > 0) {
+      addr = buildFullAddress(place);
+    } else {
+      addr = place.formatted_address || input.value || "";
+    }
+    if (!addr) return;
+
+    addr = stripZipPlus4(addr);
+    input.value = addr;
+
+    let lat = 0, lng = 0;
+    if (place.geometry?.location) {
+      lat = place.geometry.location.lat();
+      lng = place.geometry.location.lng();
+    }
+
+    addressCoords[coordsKey] = { lat, lng };
+  });
+}
+
+async function initAutocomplete() {
+  try {
+    const res = await api("/api/config");
+    if (!res.googleMapsKey) return;
+    await loadGooglePlaces(res.googleMapsKey);
+    attachAutocomplete("edit-info-address", "address");
+    attachAutocomplete("edit-info-doctor-addr", "doctorAddress");
+  } catch (err) {
+    console.warn("Google Places autocomplete not available:", err.message);
+  }
+}
+
 // ─── Initialization ───
 async function init() {
   // Check for auth token in URL (magic link callback)
@@ -143,6 +252,7 @@ async function loadPortal() {
     patientData = await api("/api/me");
     renderPortal();
     showView("portal");
+    initAutocomplete(); // non-blocking, loads Google Places for address fields
   } catch (err) {
     console.error("Failed to load portal:", err);
     showView("login");
@@ -259,6 +369,8 @@ async function saveInfo() {
       dob: document.getElementById("edit-info-dob").value.trim(),
       gender: document.getElementById("edit-info-gender").value.trim(),
       address: document.getElementById("edit-info-address").value.trim(),
+      addressLat: addressCoords.address.lat,
+      addressLng: addressCoords.address.lng,
       phone: document.getElementById("edit-info-phone").value.trim(),
       email: document.getElementById("edit-info-email").value.trim(),
       primaryInsurance: document.getElementById("edit-info-primary-ins").value.trim(),
@@ -267,6 +379,8 @@ async function saveInfo() {
       memberId2: document.getElementById("edit-info-member2").value.trim(),
       doctorName: document.getElementById("edit-info-doctor").value.trim(),
       doctorAddress: document.getElementById("edit-info-doctor-addr").value.trim(),
+      doctorAddressLat: addressCoords.doctorAddress.lat,
+      doctorAddressLng: addressCoords.doctorAddress.lng,
       doctorPhone: document.getElementById("edit-info-doctor-phone").value.trim(),
     };
     const res = await api("/api/me/update", { method: "POST", body: updates });

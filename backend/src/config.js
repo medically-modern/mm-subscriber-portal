@@ -76,7 +76,7 @@ const AUTH = {
   TOKEN_TTL: 600,                     // 10 minutes for magic link
   JWT_EXPIRY: "30d",                  // 30-day session
   JWT_SECRET_ENV: "JWT_SECRET",       // env var name
-  RATE_LIMIT_AUTH: 3,                 // max 3 link requests per phone per hour
+  RATE_LIMIT_AUTH: 50,                // 50 during testing, tighten to 3-5 for production
   RATE_LIMIT_AUTH_WINDOW: 3600,       // 1 hour in seconds
 };
 

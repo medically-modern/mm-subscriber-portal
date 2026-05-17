@@ -498,23 +498,48 @@ async function updatePatientData(uid, updates) {
 
 const PORTAL_NOTES_COLUMN = "long_text_mm3evvzj";
 
+// Extract clean text from Monday's long_text column value.
+// Monday stores it as JSON {"text":"..."} — the .text field in column_values
+// sometimes returns the raw string, sometimes the JSON blob. Handle both.
+function extractNoteText(colValue) {
+  const raw = colValue?.text || "";
+  if (!raw) return "";
+  // If it looks like nested JSON, unwrap until we get plain text
+  let text = raw;
+  for (let i = 0; i < 5; i++) {
+    try {
+      const parsed = JSON.parse(text);
+      if (typeof parsed === "string") { text = parsed; continue; }
+      if (parsed && typeof parsed.text === "string") { text = parsed.text; continue; }
+      break;
+    } catch { break; }
+  }
+  return text.trim();
+}
+
+function formatTimestamp() {
+  return new Date().toLocaleString("en-US", {
+    month: "short", day: "numeric", year: "numeric",
+    hour: "numeric", minute: "2-digit", hour12: true,
+  });
+}
+
 async function appendPatientNote(uid, note) {
   const item = await findPatientByUid(uid);
   if (!item) throw new Error("Patient not found");
   const itemId = validateNumericId(item.id, "item ID");
 
   const notesCol = item.column_values.find((c) => c.id === PORTAL_NOTES_COLUMN);
-  const existing = notesCol?.text || "";
+  const existing = extractNoteText(notesCol);
 
-  const timestamp = new Date().toLocaleString("en-US", {
-    month: "short", day: "numeric", year: "numeric",
-    hour: "numeric", minute: "2-digit", hour12: true,
-  });
-  const newEntry = `[${timestamp}] ${note}`;
+  const newEntry = `[${formatTimestamp()}] ${note}`;
   const updated = existing ? `${newEntry}\n\n${existing}` : newEntry;
 
-  const colVal = JSON.stringify(JSON.stringify({ text: updated }));
-  await mondayQuery(`mutation { change_simple_column_value(board_id: ${validateNumericId(SUBSCRIPTION_BOARD_ID)}, item_id: ${itemId}, column_id: "${PORTAL_NOTES_COLUMN}", value: ${colVal}) { id } }`);
+  // Monday long_text column expects value as: JSON string of {text: "content"}
+  const value = JSON.stringify({ text: updated });
+  await mondayQuery(WRITE_MUTATION, {
+    boardId: SUBSCRIPTION_BOARD_ID, itemId, columnId: PORTAL_NOTES_COLUMN, value,
+  });
 
   return true;
 }
@@ -537,16 +562,15 @@ async function pauseSubscription(uid, reason) {
 
   // Append note with reason
   const notesCol = item.column_values.find((c) => c.id === PORTAL_NOTES_COLUMN);
-  const existing = notesCol?.text || "";
-  const timestamp = new Date().toLocaleString("en-US", {
-    month: "short", day: "numeric", year: "numeric",
-    hour: "numeric", minute: "2-digit", hour12: true,
-  });
-  const newEntry = `[${timestamp}] PAUSE REQUEST: ${reason}`;
+  const existing = extractNoteText(notesCol);
+
+  const newEntry = `[${formatTimestamp()}] PAUSE REQUEST: ${reason}`;
   const updated = existing ? `${newEntry}\n\n${existing}` : newEntry;
 
-  const colVal = JSON.stringify(JSON.stringify({ text: updated }));
-  await mondayQuery(`mutation { change_simple_column_value(board_id: ${validateNumericId(SUBSCRIPTION_BOARD_ID)}, item_id: ${itemId}, column_id: "${PORTAL_NOTES_COLUMN}", value: ${colVal}) { id } }`);
+  const value = JSON.stringify({ text: updated });
+  await mondayQuery(WRITE_MUTATION, {
+    boardId: SUBSCRIPTION_BOARD_ID, itemId, columnId: PORTAL_NOTES_COLUMN, value,
+  });
 
   return true;
 }

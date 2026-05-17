@@ -1,0 +1,23 @@
+{
+  "name": "medically-modern-patient-portal",
+  "version": "1.0.0",
+  "description": "Patient-facing subscription portal backend — SMS magic-link auth, Monday.com data",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "helmet": "^7.1.0",
+    "express-rate-limit": "^7.1.5",
+    "cookie-parser": "^1.4.6",
+    "jsonwebtoken": "^9.0.2",
+    "ioredis": "^5.3.2",
+    "@ringcentral/sdk": "^4.7.3"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

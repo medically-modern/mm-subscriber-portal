@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Medically Modern — Patient Portal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- ═══ Header ═══ -->
+  <header class="header">
+    <div class="header-inner">
+      <div class="logo-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+        </svg>
+      </div>
+      <div class="logo-text"><span>Medically</span> Modern</div>
+      <button class="logout-btn" id="logout-btn" style="display:none" onclick="handleLogout()">Sign Out</button>
+    </div>
+  </header>
+
+  <!-- ═══ Login View ═══ -->
+  <div id="login-view" class="container">
+    <div class="login-card">
+      <div class="login-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+      </div>
+      <h2>Sign In to Your Portal</h2>
+      <p>Enter the phone number on your account. We'll text you a secure sign-in link.</p>
+      <div class="input-group">
+        <div class="input-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+          </svg>
+        </div>
+        <input type="tel" id="phone-input" class="text-input" placeholder="(555) 123-4567" maxlength="14">
+      </div>
+      <button class="btn btn-primary" id="send-link-btn" onclick="handleRequestLink()">Send Sign-In Link</button>
+      <div class="info-msg" id="login-info" style="display:none"></div>
+      <div class="error-msg" id="login-error" style="display:none"></div>
+    </div>
+    <div class="login-footer">
+      Questions? Call <a href="tel:+13475037148">(347) 503-7148</a>
+    </div>
+  </div>
+
+  <!-- ═══ Loading View ═══ -->
+  <div id="loading-view" class="container" style="display:none">
+    <div class="loading-card">
+      <div class="loading-spinner"></div>
+      <p>Loading your portal...</p>
+    </div>
+  </div>
+
+  <!-- ═══ Portal View (authenticated) ═══ -->
+  <div id="portal-view" style="display:none">
+
+    <!-- Tab Navigation -->
+    <nav class="tab-nav">
+      <button class="tab active" data-tab="dashboard" onclick="switchTab('dashboard')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        <span>Dashboard</span>
+      </button>
+      <button class="tab" data-tab="subscription" onclick="switchTab('subscription')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+        <span>Subscription</span>
+      </button>
+      <button class="tab" data-tab="info" onclick="switchTab('info')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <span>My Info</span>
+      </button>
+      <button class="tab" data-tab="coverage" onclick="switchTab('coverage')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <span>Coverage</span>
+      </button>
+    </nav>
+
+    <div class="container portal-container">
+
+      <!-- ═══ Tab: Dashboard ═══ -->
+      <div class="tab-content active" id="tab-dashboard">
+        <div class="welcome-banner" id="welcome-banner">
+          <h1 id="greeting">Hi!</h1>
+          <div class="status-row">
+            <div class="status-pill" id="status-pill">—</div>
+            <div class="order-type-pill" id="order-type-pill">—</div>
+          </div>
+        </div>
+
+        <div class="card next-order-card" id="next-order-card">
+          <div class="card-header">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <span>Next Order</span>
+          </div>
+          <div class="next-order-date" id="next-order-date">—</div>
+          <div class="next-order-countdown" id="next-order-countdown"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span>Ordering Cycle</span>
+          </div>
+          <div class="data-value" id="ordering-cycle">—</div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+            <span>Current Supplies</span>
+          </div>
+          <div class="data-row">
+            <span class="data-label">Subscription</span>
+            <span class="data-value" id="dash-subscription">—</span>
+          </div>
+          <div class="data-row">
+            <span class="data-label">Sensors</span>
+            <span class="data-value" id="dash-sensors">—</span>
+          </div>
+          <div class="data-row">
+            <span class="data-label">Supplies</span>
+            <span class="data-value" id="dash-supplies">—</span>
+          </div>
+          <div class="data-row">
+            <span class="data-label">Days to Order</span>
+            <span class="data-value" id="dash-days">—</span>
+          </div>
+        </div>
+
+        <div class="quick-actions">
+          <button class="btn btn-outline" onclick="openRequestModal('pause')">Pause Subscription</button>
+          <button class="btn btn-outline" onclick="openRequestModal('question')">Ask a Question</button>
+        </div>
+      </div>
+
+      <!-- ═══ Tab: My Subscription ═══ -->
+      <div class="tab-content" id="tab-subscription">
+        <h2 class="section-title">My Subscription</h2>
+
+        <div class="card">
+          <div class="card-header">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+            <span>Subscription Details</span>
+          </div>
+          <div class="data-row"><span class="data-label">Status</span><span class="data-value" id="sub-status">—</span></div>
+          <div class="data-row"><span class="data-label">Subscription Type</span><span class="data-value" id="sub-type">—</span></div>
+          <div class="data-row"><span class="data-label">Order Type</span><span class="data-value" id="sub-order-type">—</span></div>
+          <div class="data-row"><span class="data-label">Ordering Cycle</span><span class="data-value" id="sub-cycle">—</span></div>
+          <div class="data-row"><span class="data-label">Next Order Date</span><span class="data-value" id="sub-next-order">—</span></div>
+          <div class="data-row"><span class="data-label">Days to Order</span><span class="data-value" id="sub-days">—</span></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            <span>Sensors</span>
+          </div>
+          <div class="data-row"><span class="data-label">Sensor Type</span><span class="data-value" id="sub-sensor-type">—</span></div>
+          <div class="data-row"><span class="data-label">Units</span><span class="data-value" id="sub-sensor-units">—</span></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+            <span>Supplies &amp; Infusion Sets</span>
+          </div>
+          <div class="data-row"><span class="data-label">Supplies Type</span><span class="data-value" id="sub-supplies-type">—</span></div>
+          <div class="data-row"><span class="data-label">Infusion Set 1</span><span class="data-value" id="sub-inf1">—</span></div>
+          <div class="data-row"><span class="data-label">Qty 1</span><span class="data-value" id="sub-inf-qty1">—</span></div>
+          <div class="data-row"><span class="data-label">Infusion Set 2</span><span class="data-value" id="sub-inf2">—</span></div>
+          <div class="data-row"><span class="data-label">Qty 2</span><span class="data-value" id="sub-inf-qty2">—</span></div>
+          <div class="data-row"><span class="data-label">Units</span><span class="data-value" id="sub-supplies-units">—</span></div>
+        </div>
+
+        <div class="action-row">
+          <button class="btn btn-outline" onclick="openRequestModal('change_subscription')">Request a Change</button>
+          <button class="btn btn-outline" onclick="openRequestModal('pause')">Pause Subscription</button>
+          <button class="btn btn-outline" onclick="openRequestModal('resume')">Resume Subscription</button>
+        </div>
+      </div>
+
+      <!-- ═══ Tab: My Info ═══ -->
+      <div class="tab-content" id="tab-info">
+        <h2 class="section-title">My Information</h2>
+
+        <div class="card">
+          <div class="card-header">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <span>Personal Details</span>
+          </div>
+          <div class="data-row"><span class="data-label">Name</span><span class="data-value" id="info-name">—</span></div>
+          <div class="data-row"><span class="data-label">Date of Birth</span><span class="data-value" id="info-dob">—</span></div>
+          <div class="data-row"><span class="data-label">Gender</span><span class="data-value" id="info-gender">—</span></div>
+          <div class="data-row"><span class="data-label">Address</span><span class="data-value" id="info-address">—</span></div>
+          <div class="data-row"><span class="data-label">Phone</span><span class="data-value" id="info-phone">—</span></div>
+          <div class="data-row"><span class="data-label">Email</span><span class="data-value" id="info-email">—</span></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <span>Insurance</span>
+          </div>
+          <div class="data-row"><span class="data-label">Primary Insurance</span><span class="data-value" id="info-primary-ins">—</span></div>
+          <div class="data-row"><span class="data-label">Member ID</span><span class="data-value" id="info-member1">—</span></div>
+          <div class="data-row"><span class="data-label">Secondary Insurance</span><span class="data-value" id="info-secondary-ins">—</span></div>
+          <div class="data-row"><span class="data-label">Member ID 2</span><span class="data-value" id="info-member2">—</span></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            <span>Doctor</span>
+          </div>
+          <div class="data-row"><span class="data-label">Doctor</span><span class="data-value" id="info-doctor">—</span></div>
+          <div class="data-row"><span class="data-label">Office Address</span><span class="data-value" id="info-doctor-addr">—</span></div>
+          <div class="data-row"><span class="data-label">Office Phone</span><span class="data-value" id="info-doctor-phone">—</span></div>
+        </div>
+
+        <div class="action-row">
+          <button class="btn btn-outline" onclick="openRequestModal('update_info')">Request an Update</button>
+        </div>
+      </div>
+
+      <!-- ═══ Tab: Coverage & Auth ═══ -->
+      <div class="tab-content" id="tab-coverage">
+        <h2 class="section-title">Coverage &amp; Authorizations</h2>
+
+        <div class="card">
+          <div class="card-header">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            <span>Medical Necessity</span>
+          </div>
+          <div class="data-row"><span class="data-label">Medical Records</span><span class="data-value" id="cov-mr">—</span></div>
+          <div class="data-row"><span class="data-label">MN Expiry</span><span class="data-value" id="cov-mn-expiry">—</span></div>
+          <div class="data-row"><span class="data-label">CGM Coverage</span><span class="data-value" id="cov-cgm">—</span></div>
+          <div class="data-row"><span class="data-label">Diagnosis</span><span class="data-value" id="cov-diagnosis">—</span></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            <span>Sensors Authorization</span>
+          </div>
+          <div class="data-row"><span class="data-label">Auth Status</span><span class="data-value" id="cov-sensors-auth">—</span></div>
+          <div class="data-row"><span class="data-label">Auth ID</span><span class="data-value" id="cov-sensors-auth-id">—</span></div>
+          <div class="data-row"><span class="data-label">Units</span><span class="data-value" id="cov-sensors-units">—</span></div>
+          <div class="data-row"><span class="data-label">Auth Start</span><span class="data-value" id="cov-sensors-start">—</span></div>
+          <div class="data-row"><span class="data-label">Auth End</span><span class="data-value" id="cov-sensors-end">—</span></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+            <span>Supplies Authorization</span>
+          </div>
+          <div class="data-row"><span class="data-label">Auth Status</span><span class="data-value" id="cov-supplies-auth">—</span></div>
+          <div class="data-row"><span class="data-label">Infusion Set Auth ID</span><span class="data-value" id="cov-inf-auth-id">—</span></div>
+          <div class="data-row"><span class="data-label">Cartridge Auth ID</span><span class="data-value" id="cov-cart-auth-id">—</span></div>
+          <div class="data-row"><span class="data-label">Units</span><span class="data-value" id="cov-supplies-units">—</span></div>
+          <div class="data-row"><span class="data-label">Auth Start</span><span class="data-value" id="cov-supplies-start">—</span></div>
+          <div class="data-row"><span class="data-label">Auth End</span><span class="data-value" id="cov-supplies-end">—</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Portal footer -->
+    <div class="portal-footer">
+      <p>Questions? Call <a href="tel:+13475037148">(347) 503-7148</a></p>
+    </div>
+  </div>
+
+  <!-- ═══ Request Modal ═══ -->
+  <div class="modal-overlay" id="request-modal" style="display:none" onclick="closeRequestModal(event)">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modal-title">Submit Request</h3>
+        <button class="modal-close" onclick="closeRequestModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p id="modal-desc">Describe your request and our team will follow up.</p>
+        <textarea id="modal-details" placeholder="Tell us what you need..." rows="4" maxlength="1000"></textarea>
+        <div class="error-msg" id="modal-error" style="display:none"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeRequestModal()">Cancel</button>
+        <button class="btn btn-primary" id="modal-submit" onclick="submitRequest()">Submit</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

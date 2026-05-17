@@ -1,7 +1,11 @@
 const { SUBSCRIPTION_BOARD_ID, COLUMNS, PATIENT_COLUMNS } = require("./config");
+const { enqueueWriteAndWait, startWorker } = require("./queue");
 
 const MONDAY_TOKEN = process.env.MONDAY_TOKEN;
 const API_URL = "https://api.monday.com/v2";
+
+// Whether to route writes through the queue (enabled after worker starts)
+let _queueEnabled = false;
 
 // ─── Input validation ───
 
@@ -19,7 +23,10 @@ function validateColumnId(id) {
 
 // ─── Monday GraphQL client ───
 
-async function mondayQuery(query, variables = {}) {
+const MAX_RETRIES = 3;
+const BASE_DELAY_MS = 1000;
+
+async function mondayQuery(query, variables = {}, _attempt = 1) {
   const res = await fetch(API_URL, {
     method: "POST",
     headers: {
@@ -29,10 +36,48 @@ async function mondayQuery(query, variables = {}) {
     },
     body: JSON.stringify({ query, variables }),
   });
+
+  // Handle 429 rate limit with exponential backoff
+  if (res.status === 429) {
+    if (_attempt > MAX_RETRIES) {
+      throw new Error("Monday API rate limit exceeded after retries");
+    }
+    const retryAfter = parseInt(res.headers.get("retry-after") || "0", 10);
+    const delay = retryAfter > 0
+      ? retryAfter * 1000
+      : BASE_DELAY_MS * Math.pow(2, _attempt - 1) + Math.random() * 500;
+    console.warn(`[monday] Rate limited (429), retrying in ${Math.round(delay)}ms (attempt ${_attempt}/${MAX_RETRIES})`);
+    await new Promise((r) => setTimeout(r, delay));
+    return mondayQuery(query, variables, _attempt + 1);
+  }
+
+  // Handle 5xx server errors with retry
+  if (res.status >= 500 && _attempt <= MAX_RETRIES) {
+    const delay = BASE_DELAY_MS * Math.pow(2, _attempt - 1);
+    console.warn(`[monday] Server error ${res.status}, retrying in ${delay}ms (attempt ${_attempt}/${MAX_RETRIES})`);
+    await new Promise((r) => setTimeout(r, delay));
+    return mondayQuery(query, variables, _attempt + 1);
+  }
+
   const data = await res.json();
+
+  // Monday sometimes returns rate limit info in the response body
   if (data.errors) {
+    const rateLimitError = data.errors.find((e) => e.message?.toLowerCase().includes("rate limit") || e.extensions?.code === "RATE_LIMITED");
+    if (rateLimitError && _attempt <= MAX_RETRIES) {
+      const delay = BASE_DELAY_MS * Math.pow(2, _attempt - 1) + Math.random() * 500;
+      console.warn(`[monday] Rate limit in response body, retrying in ${Math.round(delay)}ms (attempt ${_attempt}/${MAX_RETRIES})`);
+      await new Promise((r) => setTimeout(r, delay));
+      return mondayQuery(query, variables, _attempt + 1);
+    }
     throw new Error(`Monday API error: ${JSON.stringify(data.errors)}`);
   }
+
+  // Log complexity budget if available
+  if (data.account_id !== undefined || data.complexity) {
+    console.log(`[monday] Complexity: ${JSON.stringify(data.complexity || "n/a")}`);
+  }
+
   return data.data;
 }
 
@@ -252,6 +297,16 @@ function isBlank(v) {
   return !v || v === "—" || v.trim() === "";
 }
 
+// ─── Queued write helper ───
+// Routes mutations through BullMQ when available, falls back to direct writes
+
+async function mondayWrite(query, variables, label = "write") {
+  if (_queueEnabled) {
+    return enqueueWriteAndWait(query, variables, label);
+  }
+  return mondayQuery(query, variables);
+}
+
 // ─── Per-column write helpers ───
 
 const WRITE_MUTATION = `mutation ($boardId: ID!, $itemId: ID!, $columnId: String!, $value: JSON!) {
@@ -259,45 +314,45 @@ const WRITE_MUTATION = `mutation ($boardId: ID!, $itemId: ID!, $columnId: String
 }`;
 
 async function writeText(itemId, columnId, text) {
-  await mondayQuery(WRITE_MUTATION, {
+  await mondayWrite(WRITE_MUTATION, {
     boardId: SUBSCRIPTION_BOARD_ID, itemId, columnId, value: JSON.stringify(text),
-  });
+  }, `text:${columnId}`);
 }
 
 async function writeStatusIndex(itemId, columnId, index) {
-  await mondayQuery(WRITE_MUTATION, {
+  await mondayWrite(WRITE_MUTATION, {
     boardId: SUBSCRIPTION_BOARD_ID, itemId, columnId, value: JSON.stringify({ index }),
-  });
+  }, `status:${columnId}`);
 }
 
 async function writePhone(itemId, columnId, rawPhone) {
   const digits = rawPhone.replace(/\D/g, "");
   if (!digits) throw new Error("Empty phone number");
-  await mondayQuery(WRITE_MUTATION, {
+  await mondayWrite(WRITE_MUTATION, {
     boardId: SUBSCRIPTION_BOARD_ID, itemId, columnId,
     value: JSON.stringify({ phone: digits, countryShortName: "US" }),
-  });
+  }, `phone:${columnId}`);
 }
 
 async function writeEmail(itemId, columnId, email) {
-  await mondayQuery(WRITE_MUTATION, {
+  await mondayWrite(WRITE_MUTATION, {
     boardId: SUBSCRIPTION_BOARD_ID, itemId, columnId,
     value: JSON.stringify({ email, text: email }),
-  });
+  }, `email:${columnId}`);
 }
 
 async function writeLocation(itemId, columnId, address, lat = 0, lng = 0) {
-  await mondayQuery(WRITE_MUTATION, {
+  await mondayWrite(WRITE_MUTATION, {
     boardId: SUBSCRIPTION_BOARD_ID, itemId, columnId,
     value: JSON.stringify({ address, lat, lng }),
   });
 }
 
 async function writeNumber(itemId, columnId, num) {
-  await mondayQuery(WRITE_MUTATION, {
+  await mondayWrite(WRITE_MUTATION, {
     boardId: SUBSCRIPTION_BOARD_ID, itemId, columnId,
     value: JSON.stringify(String(parseFloat(num) || 0)),
-  });
+  }, `number:${columnId}`);
 }
 
 // ─── Status label → index resolver ───
@@ -496,6 +551,19 @@ async function pauseSubscription(uid, reason) {
   return true;
 }
 
+// ─── Initialize write queue ───
+
+function initWriteQueue() {
+  try {
+    startWorker(mondayQuery);
+    _queueEnabled = true;
+    console.log("[monday] Write queue enabled — mutations routed through BullMQ");
+  } catch (err) {
+    console.warn("[monday] Write queue unavailable, using direct writes:", err.message);
+    _queueEnabled = false;
+  }
+}
+
 module.exports = {
   mondayQuery,
   findPatientByPhone,
@@ -505,4 +573,5 @@ module.exports = {
   updatePatientData,
   appendPatientNote,
   pauseSubscription,
+  initWriteQueue,
 };

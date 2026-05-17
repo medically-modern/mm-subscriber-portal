@@ -2,10 +2,12 @@ const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
+const { RedisStore } = require("rate-limit-redis");
 const cookieParser = require("cookie-parser");
 const { requestMagicLink, verifyMagicLink, requireAuth, logout, COOKIE_OPTIONS } = require("./auth");
-const { getPatientData, createPatientRequest, updatePatientData, appendPatientNote, pauseSubscription } = require("./monday");
-const { getCachedPatientData, cachePatientData, invalidatePatientCache, healthCheck } = require("./redis");
+const { getPatientData, createPatientRequest, updatePatientData, appendPatientNote, pauseSubscription, initWriteQueue } = require("./monday");
+const { queueHealthCheck } = require("./queue");
+const { redis, getCachedPatientData, cachePatientData, invalidatePatientCache, healthCheck } = require("./redis");
 
 const app = express();
 
@@ -45,17 +47,19 @@ app.use(cookieParser());
 // Trust Railway proxy for rate limiting
 app.set("trust proxy", 1);
 
-// ─── Rate limiters ───
-const globalLimiter = rateLimit({ windowMs: 60_000, max: 60, standardHeaders: true, legacyHeaders: false });
-const authLimiter = rateLimit({ windowMs: 60_000, max: 10, standardHeaders: true, legacyHeaders: false });
-const apiLimiter = rateLimit({ windowMs: 60_000, max: 30, standardHeaders: true, legacyHeaders: false });
+// ─── Rate limiters (Redis-backed for horizontal scaling) ───
+const redisStore = (prefix) => new RedisStore({ sendCommand: (...args) => redis.call(...args), prefix: `rl:${prefix}:` });
+const globalLimiter = rateLimit({ windowMs: 60_000, max: 60, standardHeaders: true, legacyHeaders: false, store: redisStore("global") });
+const authLimiter = rateLimit({ windowMs: 60_000, max: 10, standardHeaders: true, legacyHeaders: false, store: redisStore("auth") });
+const apiLimiter = rateLimit({ windowMs: 60_000, max: 30, standardHeaders: true, legacyHeaders: false, store: redisStore("api") });
 
 app.use(globalLimiter);
 
 // ─── Health check ───
 app.get("/health", async (req, res) => {
   const redisOk = await healthCheck();
-  res.json({ status: "ok", redis: redisOk ? "connected" : "disconnected", timestamp: new Date().toISOString() });
+  const queue = queueHealthCheck();
+  res.json({ status: "ok", redis: redisOk ? "connected" : "disconnected", queue, timestamp: new Date().toISOString() });
 });
 
 // ─── Frontend config (public, non-sensitive keys only) ───
@@ -149,8 +153,8 @@ app.get("/api/me", apiLimiter, requireAuth, async (req, res) => {
       if (!data) {
         return res.status(404).json({ error: "Patient not found" });
       }
-      // Cache for 5 minutes
-      await cachePatientData(req.uid, data, 300);
+      // Cache for 15 minutes — most patient data changes infrequently
+      await cachePatientData(req.uid, data, 900);
     }
 
     // Strip internal fields before sending to client
@@ -170,7 +174,7 @@ app.post("/api/me/refresh", apiLimiter, requireAuth, async (req, res) => {
     if (!data) {
       return res.status(404).json({ error: "Patient not found" });
     }
-    await cachePatientData(req.uid, data, 300);
+    await cachePatientData(req.uid, data, 900);
 
     const { itemId, ...safeData } = data;
     res.json(safeData);
@@ -284,4 +288,6 @@ app.post("/api/me/request", apiLimiter, requireAuth, async (req, res) => {
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`[portal-api] Patient portal backend running on port ${PORT}`);
+  // Initialize write queue after server is listening
+  initWriteQueue();
 });

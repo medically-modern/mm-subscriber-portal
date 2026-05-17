@@ -63,6 +63,9 @@ const COLUMNS = {
   DOCTOR_PHONE:     "phone_mkxnv7e5",
   DOCTOR_FAX:       "email_mkxn9af2",
 
+  // Portal notes
+  PORTAL_NOTES:     "long_text_mm3evvzj",
+
   // Subitems (for patient requests)
   SUBITEMS:         "subtasks_mkp0x6n",
 };

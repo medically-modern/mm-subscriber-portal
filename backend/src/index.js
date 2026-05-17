@@ -4,7 +4,7 @@ const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const cookieParser = require("cookie-parser");
 const { requestMagicLink, verifyMagicLink, requireAuth, logout, COOKIE_OPTIONS } = require("./auth");
-const { getPatientData, createPatientRequest } = require("./monday");
+const { getPatientData, createPatientRequest, updatePatientData, appendPatientNote } = require("./monday");
 const { getCachedPatientData, cachePatientData, invalidatePatientCache, healthCheck } = require("./redis");
 
 const app = express();
@@ -170,6 +170,38 @@ app.post("/api/me/refresh", apiLimiter, requireAuth, async (req, res) => {
   } catch (err) {
     console.error("[api] Error refreshing patient data:", err.message);
     res.status(500).json({ error: "Unable to refresh your data. Please try again." });
+  }
+});
+
+// POST /api/me/update — Update patient fields in Monday
+app.post("/api/me/update", apiLimiter, requireAuth, async (req, res) => {
+  try {
+    const updates = req.body;
+    if (!updates || Object.keys(updates).length === 0) {
+      return res.status(400).json({ error: "No updates provided" });
+    }
+    await updatePatientData(req.uid, updates);
+    // Invalidate cache so next load gets fresh data
+    await invalidatePatientCache(req.uid);
+    res.json({ success: true, message: "Changes saved!" });
+  } catch (err) {
+    console.error("[api] Update error:", err.message);
+    res.status(500).json({ error: "Failed to save changes. Please try again." });
+  }
+});
+
+// POST /api/me/note — Append note to Patient Portal Notes column
+app.post("/api/me/note", apiLimiter, requireAuth, async (req, res) => {
+  try {
+    const { note } = req.body;
+    if (!note || !note.trim()) {
+      return res.status(400).json({ error: "Note is required" });
+    }
+    await appendPatientNote(req.uid, note.trim());
+    res.json({ success: true, message: "Note saved!" });
+  } catch (err) {
+    console.error("[api] Note error:", err.message);
+    res.status(500).json({ error: "Failed to save note. Please try again." });
   }
 });
 

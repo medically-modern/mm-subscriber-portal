@@ -434,6 +434,46 @@ body {
 }
 .modal-footer .btn { flex: 1; }
 
+/* ─── Edit inputs ─── */
+.edit-input {
+  width: 100%;
+  padding: 0.5rem 0.65rem;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-family: inherit;
+  color: var(--text-primary);
+  background: var(--bg);
+  transition: all 0.15s;
+  outline: none;
+}
+.edit-input:focus {
+  border-color: var(--primary);
+  background: var(--surface);
+  box-shadow: 0 0 0 3px rgba(11,110,79,0.1);
+}
+.data-row .edit-input {
+  text-align: right;
+  max-width: 60%;
+}
+.edit-textarea {
+  width: 100%;
+  padding: 0.65rem;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 0.88rem;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.15s;
+  background: var(--bg);
+  color: var(--text-primary);
+}
+.edit-textarea:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(11,110,79,0.1);
+}
+
 /* ─── Portal footer ─── */
 .portal-footer {
   text-align: center;

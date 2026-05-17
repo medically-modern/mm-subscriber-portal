@@ -134,8 +134,8 @@
         </div>
 
         <div class="quick-actions">
-          <button class="btn btn-outline" onclick="openRequestModal('pause')">Pause Subscription</button>
-          <button class="btn btn-outline" onclick="openRequestModal('question')">Ask a Question</button>
+          <button class="btn btn-outline" onclick="switchTab('subscription')">Manage Subscription</button>
+          <button class="btn btn-outline" onclick="switchTab('info')">Update My Info</button>
         </div>
       </div>
 
@@ -161,7 +161,7 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
             <span>Sensors</span>
           </div>
-          <div class="data-row"><span class="data-label">Sensor Type</span><span class="data-value" id="sub-sensor-type">—</span></div>
+          <div class="data-row"><span class="data-label">Sensor Type</span><input type="text" class="edit-input" id="edit-sub-sensor-type" value=""></div>
           <div class="data-row"><span class="data-label">Units</span><span class="data-value" id="sub-sensor-units">—</span></div>
         </div>
 
@@ -170,18 +170,27 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
             <span>Supplies &amp; Infusion Sets</span>
           </div>
-          <div class="data-row"><span class="data-label">Supplies Type</span><span class="data-value" id="sub-supplies-type">—</span></div>
-          <div class="data-row"><span class="data-label">Infusion Set 1</span><span class="data-value" id="sub-inf1">—</span></div>
-          <div class="data-row"><span class="data-label">Qty 1</span><span class="data-value" id="sub-inf-qty1">—</span></div>
-          <div class="data-row"><span class="data-label">Infusion Set 2</span><span class="data-value" id="sub-inf2">—</span></div>
-          <div class="data-row"><span class="data-label">Qty 2</span><span class="data-value" id="sub-inf-qty2">—</span></div>
+          <div class="data-row"><span class="data-label">Supplies Type</span><input type="text" class="edit-input" id="edit-sub-supplies-type" value=""></div>
+          <div class="data-row"><span class="data-label">Infusion Set 1</span><input type="text" class="edit-input" id="edit-sub-inf1" value=""></div>
+          <div class="data-row"><span class="data-label">Qty 1</span><input type="number" class="edit-input" id="edit-sub-inf-qty1" value=""></div>
+          <div class="data-row"><span class="data-label">Infusion Set 2</span><input type="text" class="edit-input" id="edit-sub-inf2" value=""></div>
+          <div class="data-row"><span class="data-label">Qty 2</span><input type="number" class="edit-input" id="edit-sub-inf-qty2" value=""></div>
           <div class="data-row"><span class="data-label">Units</span><span class="data-value" id="sub-supplies-units">—</span></div>
         </div>
 
-        <div class="action-row">
-          <button class="btn btn-outline" onclick="openRequestModal('change_subscription')">Request a Change</button>
-          <button class="btn btn-outline" onclick="openRequestModal('pause')">Pause Subscription</button>
-          <button class="btn btn-outline" onclick="openRequestModal('resume')">Resume Subscription</button>
+        <div class="error-msg" id="sub-save-error" style="display:none"></div>
+        <div class="info-msg" id="sub-save-success" style="display:none"></div>
+        <button class="btn btn-primary" id="sub-save-btn" onclick="saveSubscription()">Save Changes</button>
+
+        <div class="card" style="margin-top: 0.75rem">
+          <div class="card-header">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            <span>Add a Note for Our Team</span>
+          </div>
+          <textarea id="sub-note" class="edit-textarea" placeholder="Pause request, subscription change, questions..." rows="3" maxlength="1000"></textarea>
+          <div class="error-msg" id="sub-note-error" style="display:none"></div>
+          <div class="info-msg" id="sub-note-success" style="display:none"></div>
+          <button class="btn btn-primary" id="sub-note-btn" onclick="saveNote()" style="margin-top: 0.75rem">Save Note</button>
         </div>
       </div>
 
@@ -194,12 +203,12 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
             <span>Personal Details</span>
           </div>
-          <div class="data-row"><span class="data-label">Name</span><span class="data-value" id="info-name">—</span></div>
-          <div class="data-row"><span class="data-label">Date of Birth</span><span class="data-value" id="info-dob">—</span></div>
-          <div class="data-row"><span class="data-label">Gender</span><span class="data-value" id="info-gender">—</span></div>
-          <div class="data-row"><span class="data-label">Address</span><span class="data-value" id="info-address">—</span></div>
-          <div class="data-row"><span class="data-label">Phone</span><span class="data-value" id="info-phone">—</span></div>
-          <div class="data-row"><span class="data-label">Email</span><span class="data-value" id="info-email">—</span></div>
+          <div class="data-row"><span class="data-label">Name</span><input type="text" class="edit-input" id="edit-info-name" value=""></div>
+          <div class="data-row"><span class="data-label">Date of Birth</span><input type="text" class="edit-input" id="edit-info-dob" value=""></div>
+          <div class="data-row"><span class="data-label">Gender</span><input type="text" class="edit-input" id="edit-info-gender" value=""></div>
+          <div class="data-row"><span class="data-label">Address</span><input type="text" class="edit-input" id="edit-info-address" value=""></div>
+          <div class="data-row"><span class="data-label">Phone</span><input type="tel" class="edit-input" id="edit-info-phone" value=""></div>
+          <div class="data-row"><span class="data-label">Email</span><input type="email" class="edit-input" id="edit-info-email" value=""></div>
         </div>
 
         <div class="card">
@@ -207,10 +216,10 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
             <span>Insurance</span>
           </div>
-          <div class="data-row"><span class="data-label">Primary Insurance</span><span class="data-value" id="info-primary-ins">—</span></div>
-          <div class="data-row"><span class="data-label">Member ID</span><span class="data-value" id="info-member1">—</span></div>
-          <div class="data-row"><span class="data-label">Secondary Insurance</span><span class="data-value" id="info-secondary-ins">—</span></div>
-          <div class="data-row"><span class="data-label">Member ID 2</span><span class="data-value" id="info-member2">—</span></div>
+          <div class="data-row"><span class="data-label">Primary Insurance</span><input type="text" class="edit-input" id="edit-info-primary-ins" value=""></div>
+          <div class="data-row"><span class="data-label">Member ID</span><input type="text" class="edit-input" id="edit-info-member1" value=""></div>
+          <div class="data-row"><span class="data-label">Secondary Insurance</span><input type="text" class="edit-input" id="edit-info-secondary-ins" value=""></div>
+          <div class="data-row"><span class="data-label">Member ID 2</span><input type="text" class="edit-input" id="edit-info-member2" value=""></div>
         </div>
 
         <div class="card">
@@ -218,19 +227,19 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
             <span>Doctor</span>
           </div>
-          <div class="data-row"><span class="data-label">Doctor</span><span class="data-value" id="info-doctor">—</span></div>
-          <div class="data-row"><span class="data-label">Office Address</span><span class="data-value" id="info-doctor-addr">—</span></div>
-          <div class="data-row"><span class="data-label">Office Phone</span><span class="data-value" id="info-doctor-phone">—</span></div>
+          <div class="data-row"><span class="data-label">Doctor</span><input type="text" class="edit-input" id="edit-info-doctor" value=""></div>
+          <div class="data-row"><span class="data-label">Office Address</span><input type="text" class="edit-input" id="edit-info-doctor-addr" value=""></div>
+          <div class="data-row"><span class="data-label">Office Phone</span><input type="tel" class="edit-input" id="edit-info-doctor-phone" value=""></div>
         </div>
 
-        <div class="action-row">
-          <button class="btn btn-outline" onclick="openRequestModal('update_info')">Request an Update</button>
-        </div>
+        <div class="error-msg" id="info-save-error" style="display:none"></div>
+        <div class="info-msg" id="info-save-success" style="display:none"></div>
+        <button class="btn btn-primary" id="info-save-btn" onclick="saveInfo()">Save Changes</button>
       </div>
 
       <!-- ═══ Tab: Coverage & Auth ═══ -->
       <div class="tab-content" id="tab-coverage">
-        <h2 class="section-title">Coverage &amp; Authorizations</h2>
+        <h2 class="section-title">Coverage</h2>
 
         <div class="card">
           <div class="card-header">
@@ -242,56 +251,12 @@
           <div class="data-row"><span class="data-label">CGM Coverage</span><span class="data-value" id="cov-cgm">—</span></div>
           <div class="data-row"><span class="data-label">Diagnosis</span><span class="data-value" id="cov-diagnosis">—</span></div>
         </div>
-
-        <div class="card">
-          <div class="card-header">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-            <span>Sensors Authorization</span>
-          </div>
-          <div class="data-row"><span class="data-label">Auth Status</span><span class="data-value" id="cov-sensors-auth">—</span></div>
-          <div class="data-row"><span class="data-label">Auth ID</span><span class="data-value" id="cov-sensors-auth-id">—</span></div>
-          <div class="data-row"><span class="data-label">Units</span><span class="data-value" id="cov-sensors-units">—</span></div>
-          <div class="data-row"><span class="data-label">Auth Start</span><span class="data-value" id="cov-sensors-start">—</span></div>
-          <div class="data-row"><span class="data-label">Auth End</span><span class="data-value" id="cov-sensors-end">—</span></div>
-        </div>
-
-        <div class="card">
-          <div class="card-header">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
-            <span>Supplies Authorization</span>
-          </div>
-          <div class="data-row"><span class="data-label">Auth Status</span><span class="data-value" id="cov-supplies-auth">—</span></div>
-          <div class="data-row"><span class="data-label">Infusion Set Auth ID</span><span class="data-value" id="cov-inf-auth-id">—</span></div>
-          <div class="data-row"><span class="data-label">Cartridge Auth ID</span><span class="data-value" id="cov-cart-auth-id">—</span></div>
-          <div class="data-row"><span class="data-label">Units</span><span class="data-value" id="cov-supplies-units">—</span></div>
-          <div class="data-row"><span class="data-label">Auth Start</span><span class="data-value" id="cov-supplies-start">—</span></div>
-          <div class="data-row"><span class="data-label">Auth End</span><span class="data-value" id="cov-supplies-end">—</span></div>
-        </div>
       </div>
     </div>
 
     <!-- Portal footer -->
     <div class="portal-footer">
       <p>Questions? Call <a href="tel:+13475037148">(347) 503-7148</a></p>
-    </div>
-  </div>
-
-  <!-- ═══ Request Modal ═══ -->
-  <div class="modal-overlay" id="request-modal" style="display:none" onclick="closeRequestModal(event)">
-    <div class="modal">
-      <div class="modal-header">
-        <h3 id="modal-title">Submit Request</h3>
-        <button class="modal-close" onclick="closeRequestModal()">&times;</button>
-      </div>
-      <div class="modal-body">
-        <p id="modal-desc">Describe your request and our team will follow up.</p>
-        <textarea id="modal-details" placeholder="Tell us what you need..." rows="4" maxlength="1000"></textarea>
-        <div class="error-msg" id="modal-error" style="display:none"></div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-secondary" onclick="closeRequestModal()">Cancel</button>
-        <button class="btn btn-primary" id="modal-submit" onclick="submitRequest()">Submit</button>
-      </div>
     </div>
   </div>
 

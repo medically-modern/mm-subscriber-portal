@@ -178,6 +178,9 @@ async function getPatientData(uid) {
     doctorAddress: col(COLUMNS.DOCTOR_ADDRESS),
     doctorPhone: col(COLUMNS.DOCTOR_PHONE),
     doctorFax: col(COLUMNS.DOCTOR_FAX),
+
+    // Portal notes
+    portalNotes: col(COLUMNS.PORTAL_NOTES),
   };
 }
 
@@ -218,10 +221,113 @@ async function createPatientRequest(parentItemId, requestType, details) {
   return data.create_subitem;
 }
 
+// ─── Update patient fields in Monday ───
+
+// Map of portal field names -> Monday column IDs and their types
+const FIELD_TO_COLUMN = {
+  name:              { col: null, type: "name" },         // Item name, special handling
+  dob:               { col: COLUMNS.DOB, type: "text" },
+  gender:            { col: COLUMNS.GENDER, type: "status" },
+  address:           { col: COLUMNS.ADDRESS, type: "location" },
+  phone:             { col: COLUMNS.PHONE, type: "phone" },
+  email:             { col: COLUMNS.EMAIL, type: "email" },
+  primaryInsurance:  { col: COLUMNS.PRIMARY_INS, type: "status" },
+  memberId1:         { col: COLUMNS.MEMBER_ID_1, type: "text" },
+  secondaryInsurance:{ col: COLUMNS.SECONDARY_INS, type: "status" },
+  memberId2:         { col: COLUMNS.MEMBER_ID_2, type: "text" },
+  doctorName:        { col: COLUMNS.DOCTOR_NAME, type: "text" },
+  doctorAddress:     { col: COLUMNS.DOCTOR_ADDRESS, type: "location" },
+  doctorPhone:       { col: COLUMNS.DOCTOR_PHONE, type: "phone" },
+  sensorsType:       { col: COLUMNS.SENSORS_TYPE, type: "status" },
+  suppliesType:      { col: COLUMNS.SUPPLIES_TYPE, type: "status" },
+  infusionSet1:      { col: COLUMNS.INFUSION_SET_1, type: "status" },
+  infQty1:           { col: COLUMNS.INF_QTY_1, type: "numeric" },
+  infusionSet2:      { col: COLUMNS.INFUSION_SET_2, type: "status" },
+  infQty2:           { col: COLUMNS.INF_QTY_2, type: "numeric" },
+};
+
+function buildColumnValue(type, value) {
+  switch (type) {
+    case "text":     return JSON.stringify(value);
+    case "numeric":  return JSON.stringify(parseFloat(value) || 0);
+    case "status":   return JSON.stringify({ label: value });
+    case "phone":    return JSON.stringify({ phone: value.replace(/\D/g, ""), countryShortName: "US" });
+    case "email":    return JSON.stringify({ email: value, text: value });
+    case "location": return JSON.stringify({ address: value });
+    default:         return JSON.stringify(value);
+  }
+}
+
+async function updatePatientData(uid, updates) {
+  const item = await findPatientByUid(uid);
+  if (!item) throw new Error("Patient not found");
+  const itemId = validateNumericId(item.id, "item ID");
+
+  // Handle item name separately
+  if (updates.name && updates.name !== item.name) {
+    // Add [TEST] prefix back if it was there
+    const newName = item.name.match(/^\[TEST\]\s*/i)
+      ? `[TEST] ${updates.name}`
+      : updates.name;
+    await mondayQuery(`mutation { change_simple_column_value(board_id: ${validateNumericId(SUBSCRIPTION_BOARD_ID)}, item_id: ${itemId}, column_id: "name", value: ${JSON.stringify(newName)}) { id } }`);
+  }
+
+  // Build column values object for batch update
+  const columnValues = {};
+  for (const [field, value] of Object.entries(updates)) {
+    if (field === "name") continue; // Already handled
+    const mapping = FIELD_TO_COLUMN[field];
+    if (!mapping || !mapping.col) continue;
+    columnValues[mapping.col] = buildColumnValue(mapping.type, value);
+  }
+
+  if (Object.keys(columnValues).length > 0) {
+    const colValsStr = JSON.stringify(JSON.stringify(
+      Object.fromEntries(
+        Object.entries(columnValues).map(([k, v]) => [k, JSON.parse(v)])
+      )
+    ));
+
+    await mondayQuery(`mutation { change_multiple_column_values(board_id: ${validateNumericId(SUBSCRIPTION_BOARD_ID)}, item_id: ${itemId}, column_values: ${colValsStr}) { id } }`);
+  }
+
+  return true;
+}
+
+// ─── Append note to Patient Portal Notes column ───
+
+const PORTAL_NOTES_COLUMN = "long_text_mm3evvzj";
+
+async function appendPatientNote(uid, note) {
+  const item = await findPatientByUid(uid);
+  if (!item) throw new Error("Patient not found");
+  const itemId = validateNumericId(item.id, "item ID");
+
+  // Get existing notes
+  const notesCol = item.column_values.find((c) => c.id === PORTAL_NOTES_COLUMN);
+  const existing = notesCol?.text || "";
+
+  // Append with timestamp
+  const timestamp = new Date().toLocaleString("en-US", {
+    month: "short", day: "numeric", year: "numeric",
+    hour: "numeric", minute: "2-digit", hour12: true,
+  });
+  const newEntry = `[${timestamp}] ${note}`;
+  const updated = existing ? `${newEntry}\n\n${existing}` : newEntry;
+
+  // Write back -- long_text uses {text: "..."} format
+  const colVal = JSON.stringify(JSON.stringify({ text: updated }));
+  await mondayQuery(`mutation { change_simple_column_value(board_id: ${validateNumericId(SUBSCRIPTION_BOARD_ID)}, item_id: ${itemId}, column_id: "${PORTAL_NOTES_COLUMN}", value: ${colVal}) { id } }`);
+
+  return true;
+}
+
 module.exports = {
   mondayQuery,
   findPatientByPhone,
   findPatientByUid,
   getPatientData,
   createPatientRequest,
+  updatePatientData,
+  appendPatientNote,
 };

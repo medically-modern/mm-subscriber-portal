@@ -3,7 +3,6 @@ const API_BASE = "https://mm-patient-portal-production.up.railway.app";
 
 // ─── State ───
 let patientData = null;
-let currentRequestType = null;
 
 // ─── Initialization ───
 async function init() {
@@ -202,46 +201,35 @@ function renderPortal() {
   setText("sub-cycle", d.orderingCycle);
   setText("sub-next-order", formatDate(d.nextOrder));
   setText("sub-days", d.daysToOrder);
-  setText("sub-sensor-type", d.sensorsType);
+  setInput("edit-sub-sensor-type", d.sensorsType);
   setText("sub-sensor-units", d.sensorsUnits);
-  setText("sub-supplies-type", d.suppliesType);
-  setText("sub-inf1", d.infusionSet1);
-  setText("sub-inf-qty1", d.infQty1);
-  setText("sub-inf2", d.infusionSet2);
-  setText("sub-inf-qty2", d.infQty2);
+  setInput("edit-sub-supplies-type", d.suppliesType);
+  setInput("edit-sub-inf1", d.infusionSet1);
+  setInput("edit-sub-inf-qty1", d.infQty1);
+  setInput("edit-sub-inf2", d.infusionSet2);
+  setInput("edit-sub-inf-qty2", d.infQty2);
   setText("sub-supplies-units", d.suppliesUnits);
 
   // ═══ My Info ═══
-  setText("info-name", cleanName);
-  setText("info-dob", d.dob);
-  setText("info-gender", d.gender);
-  setText("info-address", d.address);
-  setText("info-phone", formatPhone(d.phone));
-  setText("info-email", d.email);
-  setText("info-primary-ins", d.primaryInsurance);
-  setText("info-member1", d.memberId1);
-  setText("info-secondary-ins", d.secondaryInsurance);
-  setText("info-member2", d.memberId2);
-  setText("info-doctor", d.doctorName);
-  setText("info-doctor-addr", d.doctorAddress);
-  setText("info-doctor-phone", formatPhone(d.doctorPhone));
+  setInput("edit-info-name", cleanName);
+  setInput("edit-info-dob", d.dob);
+  setInput("edit-info-gender", d.gender);
+  setInput("edit-info-address", d.address);
+  setInput("edit-info-phone", formatPhone(d.phone));
+  setInput("edit-info-email", d.email);
+  setInput("edit-info-primary-ins", d.primaryInsurance);
+  setInput("edit-info-member1", d.memberId1);
+  setInput("edit-info-secondary-ins", d.secondaryInsurance);
+  setInput("edit-info-member2", d.memberId2);
+  setInput("edit-info-doctor", d.doctorName);
+  setInput("edit-info-doctor-addr", d.doctorAddress);
+  setInput("edit-info-doctor-phone", formatPhone(d.doctorPhone));
 
-  // ═══ Coverage & Auth ═══
+  // ═══ Coverage ═══
   setText("cov-mr", d.mrStatus);
   setText("cov-mn-expiry", formatDate(d.mnExpiry));
   setText("cov-cgm", d.cgmCoverage);
   setText("cov-diagnosis", d.diagnosis);
-  setText("cov-sensors-auth", d.sensorsAuth);
-  setText("cov-sensors-auth-id", d.sensorsAuthId);
-  setText("cov-sensors-units", d.sensorsUnits);
-  setText("cov-sensors-start", formatDate(d.sensorsStart));
-  setText("cov-sensors-end", formatDate(d.sensorsEnd));
-  setText("cov-supplies-auth", d.suppliesAuth);
-  setText("cov-inf-auth-id", d.infusionAuthId);
-  setText("cov-cart-auth-id", d.cartridgeAuthId);
-  setText("cov-supplies-units", d.suppliesUnits);
-  setText("cov-supplies-start", formatDate(d.suppliesStart));
-  setText("cov-supplies-end", formatDate(d.suppliesEnd));
 }
 
 // ─── Tab switching ───
@@ -256,67 +244,103 @@ function switchTab(tabName) {
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-// ─── Request modal ───
-function openRequestModal(type) {
-  currentRequestType = type;
-
-  const titles = {
-    pause: "Pause Subscription",
-    resume: "Resume Subscription",
-    change_subscription: "Change Subscription",
-    update_info: "Update My Information",
-    question: "Ask a Question",
-  };
-  const descs = {
-    pause: "Let us know why you'd like to pause and when you'd like to resume.",
-    resume: "We'll get your subscription back up and running.",
-    change_subscription: "Tell us what you'd like to change about your subscription.",
-    update_info: "Let us know what information needs to be updated.",
-    question: "What can we help you with?",
-  };
-
-  document.getElementById("modal-title").textContent = titles[type] || "Submit Request";
-  document.getElementById("modal-desc").textContent = descs[type] || "";
-  document.getElementById("modal-details").value = "";
-  document.getElementById("modal-error").style.display = "none";
-  document.getElementById("request-modal").style.display = "flex";
-}
-
-function closeRequestModal(event) {
-  if (event && event.target !== event.currentTarget) return;
-  document.getElementById("request-modal").style.display = "none";
-  currentRequestType = null;
-}
-
-async function submitRequest() {
-  const details = document.getElementById("modal-details").value.trim();
-  if (!details) {
-    showError("modal-error", "Please provide some details.");
-    return;
-  }
-
-  const btn = document.getElementById("modal-submit");
+// ─── Save Info ───
+async function saveInfo() {
+  const btn = document.getElementById("info-save-btn");
+  const errorEl = document.getElementById("info-save-error");
+  const successEl = document.getElementById("info-save-success");
+  errorEl.style.display = "none";
+  successEl.style.display = "none";
   btn.disabled = true;
-  btn.textContent = "Submitting...";
+  btn.textContent = "Saving...";
 
   try {
-    const res = await api("/api/me/request", {
-      method: "POST",
-      body: { type: currentRequestType, details },
-    });
-
-    closeRequestModal();
-
-    // Show success (brief inline notification)
-    alert(res.message);
-
-    // Refresh data
+    const updates = {
+      name: document.getElementById("edit-info-name").value.trim(),
+      dob: document.getElementById("edit-info-dob").value.trim(),
+      gender: document.getElementById("edit-info-gender").value.trim(),
+      address: document.getElementById("edit-info-address").value.trim(),
+      phone: document.getElementById("edit-info-phone").value.trim(),
+      email: document.getElementById("edit-info-email").value.trim(),
+      primaryInsurance: document.getElementById("edit-info-primary-ins").value.trim(),
+      memberId1: document.getElementById("edit-info-member1").value.trim(),
+      secondaryInsurance: document.getElementById("edit-info-secondary-ins").value.trim(),
+      memberId2: document.getElementById("edit-info-member2").value.trim(),
+      doctorName: document.getElementById("edit-info-doctor").value.trim(),
+      doctorAddress: document.getElementById("edit-info-doctor-addr").value.trim(),
+      doctorPhone: document.getElementById("edit-info-doctor-phone").value.trim(),
+    };
+    const res = await api("/api/me/update", { method: "POST", body: updates });
+    successEl.textContent = "Changes saved!";
+    successEl.style.display = "block";
     await loadPortal();
+    setTimeout(() => { successEl.style.display = "none"; }, 3000);
   } catch (err) {
-    showError("modal-error", err.message);
+    showError("info-save-error", err.message);
   } finally {
     btn.disabled = false;
-    btn.textContent = "Submit";
+    btn.textContent = "Save Changes";
+  }
+}
+
+// ─── Save Subscription ───
+async function saveSubscription() {
+  const btn = document.getElementById("sub-save-btn");
+  const errorEl = document.getElementById("sub-save-error");
+  const successEl = document.getElementById("sub-save-success");
+  errorEl.style.display = "none";
+  successEl.style.display = "none";
+  btn.disabled = true;
+  btn.textContent = "Saving...";
+
+  try {
+    const updates = {
+      sensorsType: document.getElementById("edit-sub-sensor-type").value.trim(),
+      suppliesType: document.getElementById("edit-sub-supplies-type").value.trim(),
+      infusionSet1: document.getElementById("edit-sub-inf1").value.trim(),
+      infQty1: document.getElementById("edit-sub-inf-qty1").value.trim(),
+      infusionSet2: document.getElementById("edit-sub-inf2").value.trim(),
+      infQty2: document.getElementById("edit-sub-inf-qty2").value.trim(),
+    };
+    const res = await api("/api/me/update", { method: "POST", body: updates });
+    successEl.textContent = "Changes saved!";
+    successEl.style.display = "block";
+    await loadPortal();
+    setTimeout(() => { successEl.style.display = "none"; }, 3000);
+  } catch (err) {
+    showError("sub-save-error", err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Save Changes";
+  }
+}
+
+// ─── Save Note ───
+async function saveNote() {
+  const note = document.getElementById("sub-note").value.trim();
+  if (!note) {
+    showError("sub-note-error", "Please write a note.");
+    return;
+  }
+  const btn = document.getElementById("sub-note-btn");
+  const errorEl = document.getElementById("sub-note-error");
+  const successEl = document.getElementById("sub-note-success");
+  errorEl.style.display = "none";
+  successEl.style.display = "none";
+  btn.disabled = true;
+  btn.textContent = "Saving...";
+
+  try {
+    const res = await api("/api/me/note", { method: "POST", body: { note } });
+    successEl.textContent = "Note saved!";
+    successEl.style.display = "block";
+    document.getElementById("sub-note").value = "";
+    setTimeout(() => { successEl.style.display = "none"; }, 3000);
+  } catch (err) {
+    showError("sub-note-error", err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Save Note";
   }
 }
 
@@ -324,6 +348,11 @@ async function submitRequest() {
 function setText(id, value) {
   const el = document.getElementById(id);
   if (el) el.textContent = value || "—";
+}
+
+function setInput(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.value = value || "";
 }
 
 function formatDate(dateStr) {

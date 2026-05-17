@@ -67,9 +67,11 @@ async function api(path, options = {}) {
   });
 
   const data = await res.json();
-  if (!res.ok) {
+  if (!res.ok && res.status !== 207) {
     throw new Error(data.error || "Something went wrong");
   }
+  // Attach status so callers can detect 207 partial saves
+  data._status = res.status;
   return data;
 }
 
@@ -153,11 +155,8 @@ function renderPortal() {
   const d = patientData;
   if (!d) return;
 
-  // Clean name (strip [TEST] prefix)
-  const cleanName = d.name.replace(/^\[TEST\]\s*/i, "");
-
   // ═══ Dashboard ═══
-  document.getElementById("greeting").textContent = `Hi ${cleanName}!`;
+  document.getElementById("greeting").textContent = `Hi ${d.name}!`;
 
   const statusPill = document.getElementById("status-pill");
   statusPill.textContent = d.status || "—";
@@ -211,7 +210,7 @@ function renderPortal() {
   setText("sub-supplies-units", d.suppliesUnits);
 
   // ═══ My Info ═══
-  setInput("edit-info-name", cleanName);
+  setInput("edit-info-name", d.name);
   setInput("edit-info-dob", d.dob);
   setInput("edit-info-gender", d.gender);
   setInput("edit-info-address", d.address);
@@ -271,10 +270,20 @@ async function saveInfo() {
       doctorPhone: document.getElementById("edit-info-doctor-phone").value.trim(),
     };
     const res = await api("/api/me/update", { method: "POST", body: updates });
-    successEl.textContent = "Changes saved!";
-    successEl.style.display = "block";
+    if (res._status === 207) {
+      // Partial save — some fields failed
+      errorEl.textContent = `Could not save: ${res.failedFields.join(", ")}`;
+      errorEl.style.display = "block";
+      if (res.saved > 0) {
+        successEl.textContent = `${res.saved} field(s) saved successfully.`;
+        successEl.style.display = "block";
+      }
+    } else {
+      successEl.textContent = "Changes saved!";
+      successEl.style.display = "block";
+    }
     await loadPortal();
-    setTimeout(() => { successEl.style.display = "none"; }, 3000);
+    setTimeout(() => { successEl.style.display = "none"; }, 4000);
   } catch (err) {
     showError("info-save-error", err.message);
   } finally {
@@ -303,10 +312,19 @@ async function saveSubscription() {
       infQty2: document.getElementById("edit-sub-inf-qty2").value.trim(),
     };
     const res = await api("/api/me/update", { method: "POST", body: updates });
-    successEl.textContent = "Changes saved!";
-    successEl.style.display = "block";
+    if (res._status === 207) {
+      errorEl.textContent = `Could not save: ${res.failedFields.join(", ")}`;
+      errorEl.style.display = "block";
+      if (res.saved > 0) {
+        successEl.textContent = `${res.saved} field(s) saved successfully.`;
+        successEl.style.display = "block";
+      }
+    } else {
+      successEl.textContent = "Changes saved!";
+      successEl.style.display = "block";
+    }
     await loadPortal();
-    setTimeout(() => { successEl.style.display = "none"; }, 3000);
+    setTimeout(() => { successEl.style.display = "none"; }, 4000);
   } catch (err) {
     showError("sub-save-error", err.message);
   } finally {

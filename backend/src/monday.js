@@ -43,7 +43,6 @@ async function findPatientByPhone(phone) {
   const safeBoard = validateNumericId(SUBSCRIPTION_BOARD_ID, "board ID");
   const safePhoneCol = validateColumnId(COLUMNS.PHONE);
 
-  // Direct column search — scales to any board size
   const data = await mondayQuery(`{
     items_page_by_column_values(
       board_id: ${safeBoard},
@@ -62,7 +61,6 @@ async function findPatientByPhone(phone) {
   const items = data.items_page_by_column_values?.items || [];
   if (items.length === 0) return null;
 
-  // Prefer the item that has a UID (skip incomplete/duplicate entries)
   const match = items.find((item) => {
     const uidCol = item.column_values.find((c) => c.id === COLUMNS.PATIENT_UID);
     return uidCol?.text;
@@ -203,7 +201,6 @@ async function createPatientRequest(parentItemId, requestType, details) {
     }
   `);
 
-  // Add an update (comment) with the details
   if (data.create_subitem?.id) {
     const subitemId = validateNumericId(data.create_subitem.id, "subitem ID");
     await mondayQuery(`
@@ -221,41 +218,96 @@ async function createPatientRequest(parentItemId, requestType, details) {
   return data.create_subitem;
 }
 
-// ─── Update patient fields in Monday ───
+// ═══════════════════════════════════════════════════════
+// UPDATE PATIENT FIELDS IN MONDAY
+// Per-field writes — matches command-center pattern exactly.
+// Status columns use {index} writes so we NEVER create new labels.
+// Each field writes independently — failures don't block other fields.
+// ═══════════════════════════════════════════════════════
 
-// Map of portal field names -> Monday column IDs and their types
+// Field definitions: portal name → Monday column ID + write type
 const FIELD_TO_COLUMN = {
-  name:              { col: null, type: "name" },         // Item name, special handling
-  dob:               { col: COLUMNS.DOB, type: "text" },
-  gender:            { col: COLUMNS.GENDER, type: "status" },
-  address:           { col: COLUMNS.ADDRESS, type: "location" },
-  phone:             { col: COLUMNS.PHONE, type: "phone" },
-  email:             { col: COLUMNS.EMAIL, type: "email" },
-  primaryInsurance:  { col: COLUMNS.PRIMARY_INS, type: "status" },
-  memberId1:         { col: COLUMNS.MEMBER_ID_1, type: "text" },
-  secondaryInsurance:{ col: COLUMNS.SECONDARY_INS, type: "status" },
-  memberId2:         { col: COLUMNS.MEMBER_ID_2, type: "text" },
-  doctorName:        { col: COLUMNS.DOCTOR_NAME, type: "text" },
-  doctorAddress:     { col: COLUMNS.DOCTOR_ADDRESS, type: "location" },
-  doctorPhone:       { col: COLUMNS.DOCTOR_PHONE, type: "phone" },
-  sensorsType:       { col: COLUMNS.SENSORS_TYPE, type: "status" },
-  suppliesType:      { col: COLUMNS.SUPPLIES_TYPE, type: "status" },
-  infusionSet1:      { col: COLUMNS.INFUSION_SET_1, type: "status" },
-  infQty1:           { col: COLUMNS.INF_QTY_1, type: "numeric" },
-  infusionSet2:      { col: COLUMNS.INFUSION_SET_2, type: "status" },
-  infQty2:           { col: COLUMNS.INF_QTY_2, type: "numeric" },
+  name:              { col: null, type: "name", label: "Name" },
+  dob:               { col: COLUMNS.DOB, type: "text", label: "Date of Birth" },
+  gender:            { col: COLUMNS.GENDER, type: "status", label: "Gender" },
+  address:           { col: COLUMNS.ADDRESS, type: "location", label: "Address" },
+  phone:             { col: COLUMNS.PHONE, type: "phone", label: "Phone" },
+  email:             { col: COLUMNS.EMAIL, type: "email", label: "Email" },
+  primaryInsurance:  { col: COLUMNS.PRIMARY_INS, type: "status", label: "Primary Insurance" },
+  memberId1:         { col: COLUMNS.MEMBER_ID_1, type: "text", label: "Member ID 1" },
+  secondaryInsurance:{ col: COLUMNS.SECONDARY_INS, type: "status", label: "Secondary Insurance" },
+  memberId2:         { col: COLUMNS.MEMBER_ID_2, type: "text", label: "Member ID 2" },
+  doctorName:        { col: COLUMNS.DOCTOR_NAME, type: "text", label: "Doctor Name" },
+  doctorAddress:     { col: COLUMNS.DOCTOR_ADDRESS, type: "location", label: "Doctor Address" },
+  doctorPhone:       { col: COLUMNS.DOCTOR_PHONE, type: "phone", label: "Doctor Phone" },
+  sensorsType:       { col: COLUMNS.SENSORS_TYPE, type: "status", label: "Sensors Type" },
+  suppliesType:      { col: COLUMNS.SUPPLIES_TYPE, type: "status", label: "Supplies Type" },
+  infusionSet1:      { col: COLUMNS.INFUSION_SET_1, type: "status", label: "Infusion Set 1" },
+  infQty1:           { col: COLUMNS.INF_QTY_1, type: "numeric", label: "Infusion Qty 1" },
+  infusionSet2:      { col: COLUMNS.INFUSION_SET_2, type: "status", label: "Infusion Set 2" },
+  infQty2:           { col: COLUMNS.INF_QTY_2, type: "numeric", label: "Infusion Qty 2" },
 };
 
 function isBlank(v) {
   return !v || v === "—" || v.trim() === "";
 }
 
-// Monday stores some labels with   (narrow no-break space) mixed with regular spaces.
-// The portal frontend uses regular spaces. This resolves the portal label → Monday label.
-let _statusLabelCache = null;
+// ─── Per-column write helpers ───
 
-async function getStatusLabels() {
-  if (_statusLabelCache) return _statusLabelCache;
+const WRITE_MUTATION = `mutation ($boardId: ID!, $itemId: ID!, $columnId: String!, $value: JSON!) {
+  change_column_value(board_id: $boardId, item_id: $itemId, column_id: $columnId, value: $value) { id }
+}`;
+
+async function writeText(itemId, columnId, text) {
+  await mondayQuery(WRITE_MUTATION, {
+    boardId: SUBSCRIPTION_BOARD_ID, itemId, columnId, value: JSON.stringify(text),
+  });
+}
+
+async function writeStatusIndex(itemId, columnId, index) {
+  await mondayQuery(WRITE_MUTATION, {
+    boardId: SUBSCRIPTION_BOARD_ID, itemId, columnId, value: JSON.stringify({ index }),
+  });
+}
+
+async function writePhone(itemId, columnId, rawPhone) {
+  const digits = rawPhone.replace(/\D/g, "");
+  if (!digits) throw new Error("Empty phone number");
+  await mondayQuery(WRITE_MUTATION, {
+    boardId: SUBSCRIPTION_BOARD_ID, itemId, columnId,
+    value: JSON.stringify({ phone: digits, countryShortName: "US" }),
+  });
+}
+
+async function writeEmail(itemId, columnId, email) {
+  await mondayQuery(WRITE_MUTATION, {
+    boardId: SUBSCRIPTION_BOARD_ID, itemId, columnId,
+    value: JSON.stringify({ email, text: email }),
+  });
+}
+
+async function writeLocation(itemId, columnId, address, lat = 0, lng = 0) {
+  await mondayQuery(WRITE_MUTATION, {
+    boardId: SUBSCRIPTION_BOARD_ID, itemId, columnId,
+    value: JSON.stringify({ address, lat, lng }),
+  });
+}
+
+async function writeNumber(itemId, columnId, num) {
+  await mondayQuery(WRITE_MUTATION, {
+    boardId: SUBSCRIPTION_BOARD_ID, itemId, columnId,
+    value: JSON.stringify(String(parseFloat(num) || 0)),
+  });
+}
+
+// ─── Status label → index resolver ───
+// Fetches Monday's real column settings, builds normalized label → index lookup.
+// Uses index-based writes so we NEVER create new labels.
+
+let _statusIndexCache = null;
+
+async function getStatusIndexMap() {
+  if (_statusIndexCache) return _statusIndexCache;
   const data = await mondayQuery(`{ boards(ids: ${validateNumericId(SUBSCRIPTION_BOARD_ID)}) { columns { id type settings_str } } }`);
   const map = {};
   for (const col of data.boards[0].columns) {
@@ -263,84 +315,114 @@ async function getStatusLabels() {
     try {
       const settings = JSON.parse(col.settings_str);
       if (settings.labels) {
-        // Build normalized→real lookup for this column
         map[col.id] = {};
-        for (const label of Object.values(settings.labels)) {
+        for (const [idx, label] of Object.entries(settings.labels)) {
           if (!label) continue;
-          const normalized = label.replace(/[  ]/g, " ").trim();
-          map[col.id][normalized] = label;
+          // Normalize: collapse all Unicode/special spaces to single regular space, trim, lowercase
+          const normalized = label.replace(/[\s  ]+/g, " ").trim().toLowerCase();
+          // Higher indices (regular-space versions) overwrite older Unicode-space ones
+          map[col.id][normalized] = parseInt(idx, 10);
         }
       }
     } catch {}
   }
-  _statusLabelCache = map;
+  _statusIndexCache = map;
   return map;
 }
 
-function resolveStatusLabel(columnId, portalValue, labelMap) {
-  if (!labelMap[columnId]) return portalValue;
-  const normalized = portalValue.replace(/[  ]/g, " ").trim();
-  return labelMap[columnId][normalized] || portalValue;
+function resolveStatusIndex(columnId, portalValue, indexMap) {
+  if (!indexMap[columnId]) return null;
+  const normalized = portalValue.replace(/[\s  ]+/g, " ").trim().toLowerCase();
+  const idx = indexMap[columnId][normalized];
+  return idx !== undefined ? idx : null;
 }
 
-function buildColumnValue(type, value) {
-  switch (type) {
-    case "text":     return value;
-    case "numeric":  return parseFloat(value) || 0;
-    case "status":   return { label: value }; // label resolved before this call
-    case "phone": {
-      const digits = value.replace(/\D/g, "");
-      return digits ? { phone: digits, countryShortName: "US" } : "";
-    }
-    case "email":    return { email: value, text: value };
-    case "location": return { address: value };
-    default:         return value;
-  }
-}
+// ─── Update patient fields — per-field writes with error collection ───
 
 async function updatePatientData(uid, updates) {
   const item = await findPatientByUid(uid);
   if (!item) throw new Error("Patient not found");
   const itemId = validateNumericId(item.id, "item ID");
 
-  // Handle item name separately — compare clean names to avoid unnecessary writes
-  if (updates.name) {
-    const cleanNew = updates.name.replace(/^\[TEST\]\s*/i, "").trim();
-    const cleanOld = item.name.replace(/^\[TEST\]\s*/i, "").trim();
-    if (cleanNew && cleanNew !== cleanOld) {
-      const newName = item.name.match(/^\[TEST\]\s*/i)
-        ? `[TEST] ${cleanNew}`
-        : cleanNew;
-      await mondayQuery(`mutation { change_simple_column_value(board_id: ${validateNumericId(SUBSCRIPTION_BOARD_ID)}, item_id: ${itemId}, column_id: "name", value: ${JSON.stringify(newName)}) { id } }`);
-    }
-  }
+  // Load Monday status index map (cached after first call)
+  const indexMap = await getStatusIndexMap();
 
-  // Load Monday's real status labels for Unicode-safe matching
-  const labelMap = await getStatusLabels();
+  // Build task list — each field gets its own independent write
+  const tasks = [];
+  const failures = [];
 
-  // Build column values object for batch update — skip blank/empty fields
-  const columnValues = {};
   for (const [field, value] of Object.entries(updates)) {
-    if (field === "name") continue;
     if (isBlank(value)) continue;
     const mapping = FIELD_TO_COLUMN[field];
-    if (!mapping || !mapping.col) continue;
+    if (!mapping) continue;
 
-    // For status columns, resolve portal label → exact Monday label
-    let resolved = value;
-    if (mapping.type === "status") {
-      resolved = resolveStatusLabel(mapping.col, value, labelMap);
+    // Item name — write directly, no stripping
+    if (field === "name") {
+      tasks.push({
+        label: mapping.label,
+        fn: async () => {
+          await mondayQuery(`mutation { change_simple_column_value(board_id: ${validateNumericId(SUBSCRIPTION_BOARD_ID)}, item_id: ${itemId}, column_id: "name", value: ${JSON.stringify(value.trim())}) { id } }`);
+        },
+      });
+      continue;
     }
-    columnValues[mapping.col] = buildColumnValue(mapping.type, resolved);
+
+    if (!mapping.col) continue;
+
+    switch (mapping.type) {
+      case "text":
+        tasks.push({ label: mapping.label, fn: () => writeText(itemId, mapping.col, value) });
+        break;
+      case "numeric":
+        tasks.push({ label: mapping.label, fn: () => writeNumber(itemId, mapping.col, value) });
+        break;
+      case "phone":
+        tasks.push({ label: mapping.label, fn: () => writePhone(itemId, mapping.col, value) });
+        break;
+      case "email":
+        tasks.push({ label: mapping.label, fn: () => writeEmail(itemId, mapping.col, value) });
+        break;
+      case "location":
+        tasks.push({ label: mapping.label, fn: () => writeLocation(itemId, mapping.col, value) });
+        break;
+      case "status": {
+        const idx = resolveStatusIndex(mapping.col, value, indexMap);
+        if (idx === null) {
+          // Value not found in Monday's labels — reject, never create new label
+          failures.push(`${mapping.label}: "${value}" is not a valid option`);
+          break;
+        }
+        tasks.push({ label: mapping.label, fn: () => writeStatusIndex(itemId, mapping.col, idx) });
+        break;
+      }
+    }
   }
 
-  if (Object.keys(columnValues).length > 0) {
-    const colValsStr = JSON.stringify(JSON.stringify(columnValues));
+  // Execute all writes in parallel, collect individual failures
+  const results = await Promise.all(
+    tasks.map(async (task) => {
+      try {
+        await task.fn();
+        return null; // success
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error(`[monday] Write failed for ${task.label}: ${msg}`);
+        return `${task.label}: ${msg}`;
+      }
+    })
+  );
 
-    await mondayQuery(`mutation { change_multiple_column_values(board_id: ${validateNumericId(SUBSCRIPTION_BOARD_ID)}, item_id: ${itemId}, column_values: ${colValsStr}) { id } }`);
+  for (const r of results) {
+    if (r) failures.push(r);
   }
 
-  return true;
+  const saved = tasks.length - results.filter(Boolean).length;
+
+  if (failures.length > 0) {
+    return { partial: true, saved, failures };
+  }
+
+  return { partial: false, saved: tasks.length, failures: [] };
 }
 
 // ─── Append note to Patient Portal Notes column ───
@@ -352,11 +434,9 @@ async function appendPatientNote(uid, note) {
   if (!item) throw new Error("Patient not found");
   const itemId = validateNumericId(item.id, "item ID");
 
-  // Get existing notes
   const notesCol = item.column_values.find((c) => c.id === PORTAL_NOTES_COLUMN);
   const existing = notesCol?.text || "";
 
-  // Append with timestamp
   const timestamp = new Date().toLocaleString("en-US", {
     month: "short", day: "numeric", year: "numeric",
     hour: "numeric", minute: "2-digit", hour12: true,
@@ -364,7 +444,6 @@ async function appendPatientNote(uid, note) {
   const newEntry = `[${timestamp}] ${note}`;
   const updated = existing ? `${newEntry}\n\n${existing}` : newEntry;
 
-  // Write back -- long_text uses {text: "..."} format
   const colVal = JSON.stringify(JSON.stringify({ text: updated }));
   await mondayQuery(`mutation { change_simple_column_value(board_id: ${validateNumericId(SUBSCRIPTION_BOARD_ID)}, item_id: ${itemId}, column_id: "${PORTAL_NOTES_COLUMN}", value: ${colVal}) { id } }`);
 

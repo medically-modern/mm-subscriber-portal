@@ -181,9 +181,21 @@ app.post("/api/me/update", apiLimiter, requireAuth, async (req, res) => {
       return res.status(400).json({ error: "No updates provided" });
     }
     console.log("[api] Update request for UID", req.uid, "fields:", Object.keys(updates).join(", "));
-    await updatePatientData(req.uid, updates);
+    const result = await updatePatientData(req.uid, updates);
     // Invalidate cache so next load gets fresh data
     await invalidatePatientCache(req.uid);
+
+    if (result.partial) {
+      // Some fields saved, some failed — tell user which ones
+      const failedNames = result.failures.map((f) => f.split(":")[0]);
+      return res.status(207).json({
+        success: false,
+        message: `Saved ${result.saved} field(s), but ${result.failures.length} had issues.`,
+        failures: result.failures,
+        failedFields: failedNames,
+      });
+    }
+
     res.json({ success: true, message: "Changes saved!" });
   } catch (err) {
     console.error("[api] Update error:", err.message, err.stack);

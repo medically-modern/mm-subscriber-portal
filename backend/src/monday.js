@@ -250,11 +250,44 @@ function isBlank(v) {
   return !v || v === "—" || v.trim() === "";
 }
 
+// Monday stores some labels with   (narrow no-break space) mixed with regular spaces.
+// The portal frontend uses regular spaces. This resolves the portal label → Monday label.
+let _statusLabelCache = null;
+
+async function getStatusLabels() {
+  if (_statusLabelCache) return _statusLabelCache;
+  const data = await mondayQuery(`{ boards(ids: ${validateNumericId(SUBSCRIPTION_BOARD_ID)}) { columns { id type settings_str } } }`);
+  const map = {};
+  for (const col of data.boards[0].columns) {
+    if (col.type !== "status") continue;
+    try {
+      const settings = JSON.parse(col.settings_str);
+      if (settings.labels) {
+        // Build normalized→real lookup for this column
+        map[col.id] = {};
+        for (const label of Object.values(settings.labels)) {
+          if (!label) continue;
+          const normalized = label.replace(/[  ]/g, " ").trim();
+          map[col.id][normalized] = label;
+        }
+      }
+    } catch {}
+  }
+  _statusLabelCache = map;
+  return map;
+}
+
+function resolveStatusLabel(columnId, portalValue, labelMap) {
+  if (!labelMap[columnId]) return portalValue;
+  const normalized = portalValue.replace(/[  ]/g, " ").trim();
+  return labelMap[columnId][normalized] || portalValue;
+}
+
 function buildColumnValue(type, value) {
   switch (type) {
     case "text":     return value;
     case "numeric":  return parseFloat(value) || 0;
-    case "status":   return { label: value };
+    case "status":   return { label: value }; // label resolved before this call
     case "phone": {
       const digits = value.replace(/\D/g, "");
       return digits ? { phone: digits, countryShortName: "US" } : "";
@@ -270,10 +303,11 @@ async function updatePatientData(uid, updates) {
   if (!item) throw new Error("Patient not found");
   const itemId = validateNumericId(item.id, "item ID");
 
-  // Handle item name separately
-  if (updates.name && updates.name !== item.name) {
+  // Handle item name separately — compare clean names to avoid unnecessary writes
+  if (updates.name) {
     const cleanNew = updates.name.replace(/^\[TEST\]\s*/i, "").trim();
-    if (cleanNew) {
+    const cleanOld = item.name.replace(/^\[TEST\]\s*/i, "").trim();
+    if (cleanNew && cleanNew !== cleanOld) {
       const newName = item.name.match(/^\[TEST\]\s*/i)
         ? `[TEST] ${cleanNew}`
         : cleanNew;
@@ -281,14 +315,23 @@ async function updatePatientData(uid, updates) {
     }
   }
 
+  // Load Monday's real status labels for Unicode-safe matching
+  const labelMap = await getStatusLabels();
+
   // Build column values object for batch update — skip blank/empty fields
   const columnValues = {};
   for (const [field, value] of Object.entries(updates)) {
     if (field === "name") continue;
-    if (isBlank(value)) continue; // Don't write blanks to Monday
+    if (isBlank(value)) continue;
     const mapping = FIELD_TO_COLUMN[field];
     if (!mapping || !mapping.col) continue;
-    columnValues[mapping.col] = buildColumnValue(mapping.type, value);
+
+    // For status columns, resolve portal label → exact Monday label
+    let resolved = value;
+    if (mapping.type === "status") {
+      resolved = resolveStatusLabel(mapping.col, value, labelMap);
+    }
+    columnValues[mapping.col] = buildColumnValue(mapping.type, resolved);
   }
 
   if (Object.keys(columnValues).length > 0) {

@@ -42,8 +42,14 @@ async function requestMagicLink(phone) {
   const smsBody = `Your Medically Modern login link (expires in 10 minutes):\n${link}\n\nDo not share this link.`;
 
   if (process.env.PRODUCTION_SMS_ENABLED === "true" || patient.name.includes("[TEST]")) {
-    await sendSMS(digits, smsBody);
-    console.log(`[auth] Magic link sent to ***${digits.slice(-4)} for UID ${patient.uid}`);
+    try {
+      await sendSMS(digits, smsBody);
+      console.log(`[auth] Magic link sent to ***${digits.slice(-4)} for UID ${patient.uid}`);
+    } catch (smsErr) {
+      console.error(`[auth] SMS failed for ***${digits.slice(-4)}:`, smsErr.message || smsErr);
+      // Still return success — don't reveal SMS failure to client
+      // Token is in Redis, link is valid if we can retry SMS
+    }
   } else {
     console.log(`[auth] SMS disabled — magic link for ***${digits.slice(-4)}: ${link}`);
   }

@@ -25,12 +25,18 @@ async function sendSMS(to, body) {
   if (digits.length === 10) digits = "1" + digits;
   const e164 = `+${digits}`;
 
-  const resp = await p.post("/restapi/v1.0/account/~/extension/~/sms", {
+  // Timeout after 15 seconds
+  const timeout = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error("SMS send timed out after 15s")), 15000)
+  );
+
+  const send = p.post("/restapi/v1.0/account/~/extension/~/sms", {
     from: { phoneNumber: process.env.RC_FROM_NUMBER },
     to: [{ phoneNumber: e164 }],
     text: body,
   });
 
+  const resp = await Promise.race([send, timeout]);
   const data = await resp.json();
   console.log(`[sms] Sent to ${e164}: ${data.messageStatus}`);
   return data;

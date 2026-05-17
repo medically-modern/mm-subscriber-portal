@@ -136,6 +136,24 @@
         <div class="quick-actions">
           <button class="btn btn-outline" onclick="switchTab('subscription')">Manage Subscription</button>
           <button class="btn btn-outline" onclick="switchTab('info')">Update My Info</button>
+          <button class="btn btn-pause" onclick="openPauseModal()">Pause My Order</button>
+        </div>
+      </div>
+
+      <!-- Pause Order Modal -->
+      <div class="modal-overlay" id="pause-modal" style="display:none" onclick="closePauseModal(event)">
+        <div class="modal-card">
+          <div class="modal-header">
+            <h3>Pause My Order</h3>
+            <button class="modal-close" onclick="closePauseModal()">&times;</button>
+          </div>
+          <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.75rem;">
+            Let us know why you'd like to pause and our team will take care of it.
+          </p>
+          <textarea id="pause-reason" class="edit-textarea" placeholder="Why would you like to pause your order?" rows="4" maxlength="1000"></textarea>
+          <div class="error-msg" id="pause-error" style="display:none"></div>
+          <div class="info-msg" id="pause-success" style="display:none"></div>
+          <button class="btn btn-pause" id="pause-submit-btn" onclick="submitPause()" style="margin-top: 0.75rem; width: 100%;">Confirm Pause Request</button>
         </div>
       </div>
 
@@ -161,7 +179,18 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
             <span>Sensors</span>
           </div>
-          <div class="data-row"><span class="data-label">Sensor Type</span><input type="text" class="edit-input" id="edit-sub-sensor-type" value=""></div>
+          <div class="data-row"><span class="data-label">Sensor Type</span><select class="edit-input" id="edit-sub-sensor-type">
+            <option value="">—</option>
+            <option>FreeStyle Libre 3 Plus</option>
+            <option>FreeStyle Libre 2 Plus</option>
+            <option>FreeStyle Libre 14-Day</option>
+            <option>Dexcom G7</option>
+            <option>Dexcom G7 15-Day</option>
+            <option>Dexcom G6</option>
+            <option>Guardian 4</option>
+            <option>Instinct</option>
+            <option>Not Serving</option>
+          </select></div>
           <div class="data-row"><span class="data-label">Units</span><span class="data-value" id="sub-sensor-units">—</span></div>
         </div>
 
@@ -170,10 +199,57 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
             <span>Supplies &amp; Infusion Sets</span>
           </div>
-          <div class="data-row"><span class="data-label">Supplies Type</span><input type="text" class="edit-input" id="edit-sub-supplies-type" value=""></div>
-          <div class="data-row"><span class="data-label">Infusion Set 1</span><input type="text" class="edit-input" id="edit-sub-inf1" value=""></div>
+          <div class="data-row"><span class="data-label">Supplies Type</span><select class="edit-input" id="edit-sub-supplies-type">
+            <option value="">—</option>
+            <option>t:slim</option>
+            <option>Mobi</option>
+            <option>iLet</option>
+            <option>Minimed 780G</option>
+            <option>Not Serving</option>
+          </select></div>
+          <div class="data-row"><span class="data-label">Infusion Set 1</span><select class="edit-input" id="edit-sub-inf1">
+            <option value="">—</option>
+            <option>AutoSoft XC 6 mm 5"</option>
+            <option>AutoSoft XC 6 mm 23"</option>
+            <option>AutoSoft XC 6 mm 32"</option>
+            <option>AutoSoft XC 6 mm 43"</option>
+            <option>AutoSoft XC 9 mm 23"</option>
+            <option>AutoSoft XC 9 mm 43"</option>
+            <option>AutoSoft 90 6 mm 23"</option>
+            <option>AutoSoft 90 6 mm 43"</option>
+            <option>AutoSoft 90 9 mm 23"</option>
+            <option>AutoSoft 90 9 mm 43"</option>
+            <option>AutoSoft 30 13 mm 23"</option>
+            <option>AutoSoft 30 13 mm 43"</option>
+            <option>VariSoft 13 mm 23"</option>
+            <option>VariSoft 13 mm 32"</option>
+            <option>VariSoft 17 mm 23"</option>
+            <option>TruSteel 6 mm 23"</option>
+            <option>TruSteel 6 mm 32"</option>
+            <option>TruSteel 8 mm 23"</option>
+            <option>TruSteel 8 mm 32"</option>
+            <option>Contact 6mm 23"</option>
+            <option>Inset 6mm 23"</option>
+            <option>Luer 6mm 32"</option>
+            <option>Mio Advance Clear 9mm 23"</option>
+            <option>Not Serving</option>
+          </select></div>
           <div class="data-row"><span class="data-label">Qty 1</span><input type="number" class="edit-input" id="edit-sub-inf-qty1" value=""></div>
-          <div class="data-row"><span class="data-label">Infusion Set 2</span><input type="text" class="edit-input" id="edit-sub-inf2" value=""></div>
+          <div class="data-row"><span class="data-label">Infusion Set 2</span><select class="edit-input" id="edit-sub-inf2">
+            <option value="">—</option>
+            <option>AutoSoft XC 6 mm 5"</option>
+            <option>AutoSoft XC 6 mm 23"</option>
+            <option>AutoSoft XC 6 mm 32"</option>
+            <option>AutoSoft XC 6 mm 43"</option>
+            <option>AutoSoft XC 9 mm 23"</option>
+            <option>AutoSoft 90 6 mm 23"</option>
+            <option>AutoSoft 90 6 mm 43"</option>
+            <option>AutoSoft 90 9 mm 23"</option>
+            <option>AutoSoft 30 13 mm 23"</option>
+            <option>VariSoft 13 mm 32"</option>
+            <option>TruSteel 6 mm 23"</option>
+            <option>Not Serving</option>
+          </select></div>
           <div class="data-row"><span class="data-label">Qty 2</span><input type="number" class="edit-input" id="edit-sub-inf-qty2" value=""></div>
           <div class="data-row"><span class="data-label">Units</span><span class="data-value" id="sub-supplies-units">—</span></div>
         </div>
@@ -205,7 +281,11 @@
           </div>
           <div class="data-row"><span class="data-label">Name</span><input type="text" class="edit-input" id="edit-info-name" value=""></div>
           <div class="data-row"><span class="data-label">Date of Birth</span><input type="text" class="edit-input" id="edit-info-dob" value=""></div>
-          <div class="data-row"><span class="data-label">Gender</span><input type="text" class="edit-input" id="edit-info-gender" value=""></div>
+          <div class="data-row"><span class="data-label">Gender</span><select class="edit-input" id="edit-info-gender">
+            <option value="">—</option>
+            <option>Male</option>
+            <option>Female</option>
+          </select></div>
           <div class="data-row"><span class="data-label">Address</span><input type="text" class="edit-input" id="edit-info-address" value=""></div>
           <div class="data-row"><span class="data-label">Phone</span><input type="tel" class="edit-input" id="edit-info-phone" value=""></div>
           <div class="data-row"><span class="data-label">Email</span><input type="email" class="edit-input" id="edit-info-email" value=""></div>
@@ -216,9 +296,40 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
             <span>Insurance</span>
           </div>
-          <div class="data-row"><span class="data-label">Primary Insurance</span><input type="text" class="edit-input" id="edit-info-primary-ins" value=""></div>
+          <div class="data-row"><span class="data-label">Primary Insurance</span><select class="edit-input" id="edit-info-primary-ins">
+            <option value="">—</option>
+            <option>Anthem BCBS Commercial</option>
+            <option>Anthem BCBS Medicaid (JLJ)</option>
+            <option>Anthem BCBS Low-Cost (JLJ)</option>
+            <option>Anthem BCBS Medicare</option>
+            <option>Cigna</option>
+            <option>Aetna Commercial</option>
+            <option>Aetna Medicare</option>
+            <option>United Commercial</option>
+            <option>United Medicaid</option>
+            <option>United Medicare</option>
+            <option>Humana</option>
+            <option>Wellcare</option>
+            <option>Medicare A&amp;B</option>
+            <option>Medicaid</option>
+            <option>Fidelis Medicaid</option>
+            <option>Fidelis Commercial</option>
+            <option>Fidelis Low-Cost</option>
+            <option>Fidelis Medicare</option>
+            <option>Horizon BCBS</option>
+            <option>BCBS Wyoming</option>
+            <option>BCBS TN</option>
+            <option>NYSHIP</option>
+            <option>Midlands Choice</option>
+            <option>Magnacare</option>
+          </select></div>
           <div class="data-row"><span class="data-label">Member ID</span><input type="text" class="edit-input" id="edit-info-member1" value=""></div>
-          <div class="data-row"><span class="data-label">Secondary Insurance</span><input type="text" class="edit-input" id="edit-info-secondary-ins" value=""></div>
+          <div class="data-row"><span class="data-label">Secondary Insurance</span><select class="edit-input" id="edit-info-secondary-ins">
+            <option value="">—</option>
+            <option>None</option>
+            <option>NY Medicaid</option>
+            <option>Medicare Supplement</option>
+          </select></div>
           <div class="data-row"><span class="data-label">Member ID 2</span><input type="text" class="edit-input" id="edit-info-member2" value=""></div>
         </div>
 

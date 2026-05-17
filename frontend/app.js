@@ -352,7 +352,20 @@ function setText(id, value) {
 
 function setInput(id, value) {
   const el = document.getElementById(id);
-  if (el) el.value = value || "";
+  if (!el) return;
+  const v = value || "";
+  if (el.tagName === "SELECT") {
+    // Try exact match first, then normalized match (strip special Unicode spaces)
+    const normalize = (s) => s.replace(/[  ]/g, " ").trim();
+    const opts = Array.from(el.options);
+    const exact = opts.find((o) => o.value === v);
+    if (exact) { el.value = v; return; }
+    const norm = opts.find((o) => normalize(o.value) === normalize(v));
+    if (norm) { el.value = norm.value; return; }
+    el.value = "";
+  } else {
+    el.value = v;
+  }
 }
 
 function formatDate(dateStr) {
@@ -394,6 +407,48 @@ document.getElementById("phone-input").addEventListener("input", function () {
 document.getElementById("phone-input").addEventListener("keyup", function (e) {
   if (e.key === "Enter") handleRequestLink();
 });
+
+// ─── Pause Order Modal ───
+function openPauseModal() {
+  document.getElementById("pause-modal").style.display = "flex";
+  document.getElementById("pause-reason").value = "";
+  document.getElementById("pause-error").style.display = "none";
+  document.getElementById("pause-success").style.display = "none";
+  document.getElementById("pause-submit-btn").disabled = false;
+  document.getElementById("pause-submit-btn").textContent = "Confirm Pause Request";
+}
+
+function closePauseModal(event) {
+  if (event && event.target !== event.currentTarget) return;
+  document.getElementById("pause-modal").style.display = "none";
+}
+
+async function submitPause() {
+  const reason = document.getElementById("pause-reason").value.trim();
+  if (!reason) {
+    showError("pause-error", "Please tell us why you'd like to pause.");
+    return;
+  }
+  const btn = document.getElementById("pause-submit-btn");
+  const errorEl = document.getElementById("pause-error");
+  const successEl = document.getElementById("pause-success");
+  errorEl.style.display = "none";
+  successEl.style.display = "none";
+  btn.disabled = true;
+  btn.textContent = "Submitting...";
+
+  try {
+    await api("/api/me/note", { method: "POST", body: { note: `PAUSE REQUEST: ${reason}` } });
+    successEl.textContent = "Pause request submitted! Our team will review it shortly.";
+    successEl.style.display = "block";
+    btn.textContent = "Submitted!";
+    setTimeout(() => { closePauseModal(); }, 2500);
+  } catch (err) {
+    showError("pause-error", err.message);
+    btn.disabled = false;
+    btn.textContent = "Confirm Pause Request";
+  }
+}
 
 // ─── Start ───
 init();

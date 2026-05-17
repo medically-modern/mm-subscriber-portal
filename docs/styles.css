@@ -563,3 +563,8 @@ select.edit-input {
   }
   .modal-overlay { align-items: center; }
 }
+
+/* Google Places autocomplete dropdown */
+.pac-container {
+  z-index: 10000 !important;
+}

@@ -246,15 +246,22 @@ const FIELD_TO_COLUMN = {
   infQty2:           { col: COLUMNS.INF_QTY_2, type: "numeric" },
 };
 
+function isBlank(v) {
+  return !v || v === "—" || v.trim() === "";
+}
+
 function buildColumnValue(type, value) {
   switch (type) {
-    case "text":     return JSON.stringify(value);
-    case "numeric":  return JSON.stringify(parseFloat(value) || 0);
-    case "status":   return JSON.stringify({ label: value });
-    case "phone":    return JSON.stringify({ phone: value.replace(/\D/g, ""), countryShortName: "US" });
-    case "email":    return JSON.stringify({ email: value, text: value });
-    case "location": return JSON.stringify({ address: value });
-    default:         return JSON.stringify(value);
+    case "text":     return value;
+    case "numeric":  return parseFloat(value) || 0;
+    case "status":   return { label: value };
+    case "phone": {
+      const digits = value.replace(/\D/g, "");
+      return digits ? { phone: digits, countryShortName: "US" } : "";
+    }
+    case "email":    return { email: value, text: value };
+    case "location": return { address: value };
+    default:         return value;
   }
 }
 
@@ -265,28 +272,27 @@ async function updatePatientData(uid, updates) {
 
   // Handle item name separately
   if (updates.name && updates.name !== item.name) {
-    // Add [TEST] prefix back if it was there
-    const newName = item.name.match(/^\[TEST\]\s*/i)
-      ? `[TEST] ${updates.name}`
-      : updates.name;
-    await mondayQuery(`mutation { change_simple_column_value(board_id: ${validateNumericId(SUBSCRIPTION_BOARD_ID)}, item_id: ${itemId}, column_id: "name", value: ${JSON.stringify(newName)}) { id } }`);
+    const cleanNew = updates.name.replace(/^\[TEST\]\s*/i, "").trim();
+    if (cleanNew) {
+      const newName = item.name.match(/^\[TEST\]\s*/i)
+        ? `[TEST] ${cleanNew}`
+        : cleanNew;
+      await mondayQuery(`mutation { change_simple_column_value(board_id: ${validateNumericId(SUBSCRIPTION_BOARD_ID)}, item_id: ${itemId}, column_id: "name", value: ${JSON.stringify(newName)}) { id } }`);
+    }
   }
 
-  // Build column values object for batch update
+  // Build column values object for batch update — skip blank/empty fields
   const columnValues = {};
   for (const [field, value] of Object.entries(updates)) {
-    if (field === "name") continue; // Already handled
+    if (field === "name") continue;
+    if (isBlank(value)) continue; // Don't write blanks to Monday
     const mapping = FIELD_TO_COLUMN[field];
     if (!mapping || !mapping.col) continue;
     columnValues[mapping.col] = buildColumnValue(mapping.type, value);
   }
 
   if (Object.keys(columnValues).length > 0) {
-    const colValsStr = JSON.stringify(JSON.stringify(
-      Object.fromEntries(
-        Object.entries(columnValues).map(([k, v]) => [k, JSON.parse(v)])
-      )
-    ));
+    const colValsStr = JSON.stringify(JSON.stringify(columnValues));
 
     await mondayQuery(`mutation { change_multiple_column_values(board_id: ${validateNumericId(SUBSCRIPTION_BOARD_ID)}, item_id: ${itemId}, column_values: ${colValsStr}) { id } }`);
   }

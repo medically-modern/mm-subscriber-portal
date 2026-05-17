@@ -58,6 +58,13 @@ app.get("/health", async (req, res) => {
   res.json({ status: "ok", redis: redisOk ? "connected" : "disconnected", timestamp: new Date().toISOString() });
 });
 
+// ─── Frontend config (public, non-sensitive keys only) ───
+app.get("/api/config", (req, res) => {
+  res.json({
+    googleMapsKey: process.env.GOOGLE_MAPS_API_KEY || null,
+  });
+});
+
 // ═══════════════════════════════════════════════════════
 // AUTH ROUTES
 // ═══════════════════════════════════════════════════════

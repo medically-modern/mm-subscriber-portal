@@ -351,7 +351,11 @@ async function updatePatientData(uid, updates) {
   const tasks = [];
   const failures = [];
 
+  // Skip metadata fields (lat/lng are consumed by their parent location field)
+  const skipFields = new Set(["addressLat", "addressLng", "doctorAddressLat", "doctorAddressLng"]);
+
   for (const [field, value] of Object.entries(updates)) {
+    if (skipFields.has(field)) continue;
     if (isBlank(value)) continue;
     const mapping = FIELD_TO_COLUMN[field];
     if (!mapping) continue;
@@ -382,9 +386,19 @@ async function updatePatientData(uid, updates) {
       case "email":
         tasks.push({ label: mapping.label, fn: () => writeEmail(itemId, mapping.col, value) });
         break;
-      case "location":
-        tasks.push({ label: mapping.label, fn: () => writeLocation(itemId, mapping.col, value) });
+      case "location": {
+        // Pull lat/lng from companion fields (sent by frontend from Google Places)
+        let lat = 0, lng = 0;
+        if (field === "address") {
+          lat = parseFloat(updates.addressLat) || 0;
+          lng = parseFloat(updates.addressLng) || 0;
+        } else if (field === "doctorAddress") {
+          lat = parseFloat(updates.doctorAddressLat) || 0;
+          lng = parseFloat(updates.doctorAddressLng) || 0;
+        }
+        tasks.push({ label: mapping.label, fn: () => writeLocation(itemId, mapping.col, value, lat, lng) });
         break;
+      }
       case "status": {
         const idx = resolveStatusIndex(mapping.col, value, indexMap);
         if (idx === null) {

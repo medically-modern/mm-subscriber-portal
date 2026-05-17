@@ -41,35 +41,43 @@ async function mondayQuery(query, variables = {}) {
 async function findPatientByPhone(phone) {
   const digits = phone.replace(/\D/g, "");
   const safeBoard = validateNumericId(SUBSCRIPTION_BOARD_ID, "board ID");
+  const safePhoneCol = validateColumnId(COLUMNS.PHONE);
 
+  // Direct column search — scales to any board size
   const data = await mondayQuery(`{
-    boards(ids: [${safeBoard}]) {
-      items_page(limit: 500) {
-        items {
-          id name group { id title }
-          column_values { id type text value }
+    items_page_by_column_values(
+      board_id: ${safeBoard},
+      limit: 10,
+      columns: [{column_id: "${safePhoneCol}", column_values: ["${digits}"]}]
+    ) {
+      items {
+        id name group { id title }
+        column_values(ids: ["${safePhoneCol}", "${validateColumnId(COLUMNS.PATIENT_UID)}"]) {
+          id text value
         }
       }
     }
   }`);
 
-  const board = data.boards?.[0];
-  if (!board) return null;
+  const items = data.items_page_by_column_values?.items || [];
+  if (items.length === 0) return null;
 
-  for (const item of board.items_page.items) {
-    const phoneCol = item.column_values.find((c) => c.id === COLUMNS.PHONE);
-    if (phoneCol?.text && phoneCol.text.replace(/\D/g, "").includes(digits)) {
-      const uidCol = item.column_values.find((c) => c.id === COLUMNS.PATIENT_UID);
-      return {
-        itemId: item.id,
-        name: item.name,
-        uid: uidCol?.text || null,
-        phone: phoneCol.text,
-        group: item.group,
-      };
-    }
-  }
-  return null;
+  // Prefer the item that has a UID (skip incomplete/duplicate entries)
+  const match = items.find((item) => {
+    const uidCol = item.column_values.find((c) => c.id === COLUMNS.PATIENT_UID);
+    return uidCol?.text;
+  }) || items[0];
+
+  const uidCol = match.column_values.find((c) => c.id === COLUMNS.PATIENT_UID);
+  const phoneCol = match.column_values.find((c) => c.id === COLUMNS.PHONE);
+
+  return {
+    itemId: match.id,
+    name: match.name,
+    uid: uidCol?.text || null,
+    phone: phoneCol?.text || digits,
+    group: match.group,
+  };
 }
 
 // ─── Find patient by UID on subscription board ───

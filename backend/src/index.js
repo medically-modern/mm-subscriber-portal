@@ -4,7 +4,7 @@ const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const cookieParser = require("cookie-parser");
 const { requestMagicLink, verifyMagicLink, requireAuth, logout, COOKIE_OPTIONS } = require("./auth");
-const { getPatientData, createPatientRequest, updatePatientData, appendPatientNote } = require("./monday");
+const { getPatientData, createPatientRequest, updatePatientData, appendPatientNote, pauseSubscription } = require("./monday");
 const { getCachedPatientData, cachePatientData, invalidatePatientCache, healthCheck } = require("./redis");
 
 const app = express();
@@ -222,6 +222,22 @@ app.post("/api/me/note", apiLimiter, requireAuth, async (req, res) => {
   } catch (err) {
     console.error("[api] Note error:", err.message);
     res.status(500).json({ error: "Failed to save note. Please try again." });
+  }
+});
+
+// POST /api/me/pause — Pause subscription (flip status + append note)
+app.post("/api/me/pause", apiLimiter, requireAuth, async (req, res) => {
+  try {
+    const { reason } = req.body;
+    if (!reason || !reason.trim()) {
+      return res.status(400).json({ error: "Please provide a reason for pausing." });
+    }
+    await pauseSubscription(req.uid, reason.trim());
+    await invalidatePatientCache(req.uid);
+    res.json({ success: true, message: "Your subscription has been paused." });
+  } catch (err) {
+    console.error("[api] Pause error:", err.message);
+    res.status(500).json({ error: "Failed to pause subscription. Please try again." });
   }
 });
 

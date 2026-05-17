@@ -464,6 +464,38 @@ async function appendPatientNote(uid, note) {
   return true;
 }
 
+// ─── Pause subscription — flip status to Paused + append note ───
+
+async function pauseSubscription(uid, reason) {
+  const item = await findPatientByUid(uid);
+  if (!item) throw new Error("Patient not found");
+  const itemId = validateNumericId(item.id, "item ID");
+
+  // Resolve "Paused" to its Monday index
+  const indexMap = await getStatusIndexMap();
+  const statusCol = COLUMNS.STATUS;
+  const pausedIndex = resolveStatusIndex(statusCol, "Paused", indexMap);
+  if (pausedIndex === null) throw new Error("Could not resolve 'Paused' status index");
+
+  // Write status to Paused
+  await writeStatusIndex(itemId, statusCol, pausedIndex);
+
+  // Append note with reason
+  const notesCol = item.column_values.find((c) => c.id === PORTAL_NOTES_COLUMN);
+  const existing = notesCol?.text || "";
+  const timestamp = new Date().toLocaleString("en-US", {
+    month: "short", day: "numeric", year: "numeric",
+    hour: "numeric", minute: "2-digit", hour12: true,
+  });
+  const newEntry = `[${timestamp}] PAUSE REQUEST: ${reason}`;
+  const updated = existing ? `${newEntry}\n\n${existing}` : newEntry;
+
+  const colVal = JSON.stringify(JSON.stringify({ text: updated }));
+  await mondayQuery(`mutation { change_simple_column_value(board_id: ${validateNumericId(SUBSCRIPTION_BOARD_ID)}, item_id: ${itemId}, column_id: "${PORTAL_NOTES_COLUMN}", value: ${colVal}) { id } }`);
+
+  return true;
+}
+
 module.exports = {
   mondayQuery,
   findPatientByPhone,
@@ -472,4 +504,5 @@ module.exports = {
   createPatientRequest,
   updatePatientData,
   appendPatientNote,
+  pauseSubscription,
 };

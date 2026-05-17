@@ -570,8 +570,8 @@ async function submitPause() {
   btn.textContent = "Submitting...";
 
   try {
-    await api("/api/me/note", { method: "POST", body: { note: `PAUSE REQUEST: ${reason}` } });
-    successEl.textContent = "Pause request submitted! Our team will review it shortly.";
+    await api("/api/me/pause", { method: "POST", body: { reason } });
+    successEl.textContent = "Your subscription has been paused.";
     successEl.style.display = "block";
     btn.textContent = "Submitted!";
     setTimeout(() => { closePauseModal(); }, 2500);

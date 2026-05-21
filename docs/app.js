@@ -319,6 +319,15 @@ function renderPortal() {
   setInput("edit-sub-inf-qty2", d.infQty2);
   setText("sub-supplies-units", d.suppliesUnits);
 
+  // ═══ Conditional visibility ═══
+  const sensorsNotServing = !d.sensorsType || d.sensorsType === "Not Serving";
+  document.getElementById("sensors-card").style.display = sensorsNotServing ? "none" : "";
+  document.getElementById("dash-sensors-row").style.display = sensorsNotServing ? "none" : "";
+
+  const inf2Empty = !d.infusionSet2 || d.infusionSet2 === "—" || d.infusionSet2 === "";
+  document.getElementById("inf2-row").style.display = inf2Empty ? "none" : "";
+  document.getElementById("inf2-qty-row").style.display = inf2Empty ? "none" : "";
+
   // ═══ My Info ═══
   setInput("edit-info-name", d.name);
   setInput("edit-info-dob", d.dob);

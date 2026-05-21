@@ -329,9 +329,9 @@ function renderPortal() {
   document.getElementById("inf2-qty-row").style.display = inf2Empty ? "none" : "";
 
   // ═══ My Info ═══
-  setInput("edit-info-name", d.name);
-  setInput("edit-info-dob", d.dob);
-  setInput("edit-info-gender", d.gender);
+  setText("info-name", d.name);
+  setText("info-dob", d.dob);
+  setText("info-gender", d.gender);
   setInput("edit-info-address", d.address);
   setInput("edit-info-phone", formatPhone(d.phone));
   setInput("edit-info-email", d.email);
@@ -374,9 +374,6 @@ async function saveInfo() {
 
   try {
     const updates = {
-      name: document.getElementById("edit-info-name").value.trim(),
-      dob: document.getElementById("edit-info-dob").value.trim(),
-      gender: document.getElementById("edit-info-gender").value.trim(),
       address: document.getElementById("edit-info-address").value.trim(),
       addressLat: addressCoords.address.lat,
       addressLng: addressCoords.address.lng,

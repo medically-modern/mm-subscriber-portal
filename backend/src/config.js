@@ -31,7 +31,12 @@ const COLUMNS = {
   CGM_COVERAGE:     "color_mm2cmgqe",
   MR_STATUS:        "color_mktyr8xg",     // MR Valid / etc
   MN_EXPIRY:        "date_mkp09gra",
-  DIAGNOSIS:        "color_mkxrxv9w",
+  // Diagnosis became a dropdown on 2026-09-21 (a status column caps at 39
+  // labels, so monday was silently dropping new ICD-10 codes at HTTP 200).
+  // The status column is still on the board as "Diagnosis (retired)", which
+  // is why reading it never errored — it just goes blank for rows created
+  // after the migration. Multi-select: text can come back as "E11.65, E10.9".
+  DIAGNOSIS:        "dropdown_mm7d2p2h",
 
   // Sensors auth
   SENSORS_AUTH:     "color_mm25t997",

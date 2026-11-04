@@ -1,8 +1,16 @@
 const { SUBSCRIPTION_BOARD_ID, COLUMNS, PATIENT_COLUMNS } = require("./config");
 const { enqueueWriteAndWait, startWorker } = require("./queue");
+const { createFridayForward } = require("./fridayForward");
 
 const MONDAY_TOKEN = process.env.MONDAY_TOKEN;
 const API_URL = "https://api.monday.com/v2";
+
+// The Friday forward (src/fridayForward.js, the same module reorder-patient-form carries): every mutation Monday
+// accepts through mondayQuery below is handed to Friday (Medically Modern's own board app, which shadows the
+// Subscription board until Monday is left) afterwards, exactly as sent, in the background. It never throws and
+// never delays Monday's answer. OFF unless FRIDAY_FORWARD=1 with FRIDAY_URL, FRIDAY_API_KEY and FRIDAY_BOARD_IDS
+// (18407459988). A give-up is pushed to ntfy when NTFY_BASE (or NTFY_URL) and NTFY_TOPIC are set.
+const fridayForward = createFridayForward({ env: process.env, log: console.log, service: "mm-subscriber-portal" });
 
 // Whether to route writes through the queue (enabled after worker starts)
 let _queueEnabled = false;
@@ -78,6 +86,7 @@ async function mondayQuery(query, variables = {}, _attempt = 1) {
     console.log(`[monday] Complexity: ${JSON.stringify(data.complexity || "n/a")}`);
   }
 
+  fridayForward.onMutation({ query, variables, data: data.data }); // Monday said yes: Friday hears the same write
   return data.data;
 }
 
@@ -600,6 +609,7 @@ function initWriteQueue() {
 }
 
 module.exports = {
+  fridayForward,
   mondayQuery,
   findPatientByPhone,
   findPatientByUid,

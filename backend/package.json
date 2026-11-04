@@ -1,11 +1,12 @@
 {
   "name": "medically-modern-patient-portal",
   "version": "1.0.0",
-  "description": "Patient-facing subscription portal backend — SMS magic-link auth, Monday.com data",
+  "description": "Patient-facing subscription portal backend \u2014 SMS magic-link auth, Monday.com data",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "node --watch src/index.js"
+    "dev": "node --watch src/index.js",
+    "test": "node --test test/*.test.js"
   },
   "dependencies": {
     "express": "^4.18.2",

@@ -59,7 +59,7 @@ app.use(globalLimiter);
 app.get("/health", async (req, res) => {
   const redisOk = await healthCheck();
   const queue = queueHealthCheck();
-  res.json({ status: "ok", redis: redisOk ? "connected" : "disconnected", queue, timestamp: new Date().toISOString() });
+  res.json({ status: "ok", redis: redisOk ? "connected" : "disconnected", queue, friday: require("./monday").fridayForward.status(), timestamp: new Date().toISOString() });
 });
 
 // ─── Frontend config (public, non-sensitive keys only) ───

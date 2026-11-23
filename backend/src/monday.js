@@ -3,7 +3,9 @@ const { enqueueWriteAndWait, startWorker } = require("./queue");
 const { createFridayForward } = require("./fridayForward");
 
 const MONDAY_TOKEN = process.env.MONDAY_TOKEN;
-const API_URL = "https://api.monday.com/v2";
+// Monday's API address is a setting (MONDAY_API_URL); unset = today's address. On the day Monday is left, one
+// variable points the portal at Friday's /v2.
+const API_URL = process.env.MONDAY_API_URL || "https://api.monday.com/v2";
 
 // The Friday forward (src/fridayForward.js, the same module reorder-patient-form carries): every mutation Monday
 // accepts through mondayQuery below is handed to Friday (Medically Modern's own board app, which shadows the
